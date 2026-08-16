@@ -14,5 +14,41 @@ export interface Producto {
   bonificacion_paquete: number;
   stock_minimo: number;
   alerta_proyeccion: boolean;
-  fecha_creacion: String;
+  fecha_creacion: string;
+}
+
+export interface Empresa {
+  id_empresa: number;
+  nombre_empresa: string;
+  activo?: boolean | null;
+  fecha_creacion?: String | null; 
+}
+
+export interface Usuario {
+  id_usuario: number;
+  id_empresa: number;
+  nombre_usuario: string;
+  rol: enumRol;
+  bonificacion?: number | null;
+  fecha_creacion?: string | null;
+}
+
+enum enumRol {
+  Admin = "Admin",
+  Socio = "Socio",
+  Revendedor = "Revendedor",
+  Cliente = "Cliente",
+}
+
+export interface SesionUsuario {
+  usuario: Usuario;
+  email: string;
+}
+
+export interface Cuenta {
+  id_cuenta: number;
+  id_usuario: number;
+  id_auth: string;
+  email: string;
+  fecha_creacion?: string | null;
 }
