@@ -1,30 +1,24 @@
-import { Text, View, StyleSheet } from "react-native";
+import { Redirect } from "expo-router";
+import { ActivityIndicator, View } from "react-native";
+import { useAuth } from "../context/authContext";
 
-export default function PantallaPrincipal() {
-  return (
-    <View style={styles.contenedor}>
-      <Text style={styles.titulo}>¡Hola! Este es mi sistema de depósito</Text>
-      <Text style={styles.subtitulo}>El texto funciona perfecto.</Text>
-    </View>
-  );
+export default function IndexEnrutador() {
+  const { usuario, cargando } = useAuth();
+
+  // Mientras le pregunta a Supabase si hay sesión, muestra la ruedita
+  if (cargando) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#007BFF" />
+      </View>
+    );
+  }
+
+  // Si encontró un usuario activo, lo patea a tu sistema de depósito
+  if (usuario) {
+    return <Redirect href="/home" />;
+  }
+
+  // Si no hay sesión, lo patea al formulario para que ponga la clave
+  return <Redirect href="/login" />;
 }
-
-// Acá abajo le damos diseño (colores, tamaños, centrado)
-const styles = StyleSheet.create({
-  contenedor: {
-    flex: 1, // Ocupa toda la pantalla
-    justifyContent: "center", // Centra verticalmente
-    alignItems: "center", // Centra horizontalmente
-    backgroundColor: "#f5f5f5", // Color de fondo gris clarito
-  },
-  titulo: {
-    fontSize: 24, // Tamaño de letra grande
-    fontWeight: "bold", // Negrita
-    color: "#333", // Gris oscuro
-    marginBottom: 10, // Espacio hacia abajo
-  },
-  subtitulo: {
-    fontSize: 16,
-    color: "#666",
-  },
-});
