@@ -1,7 +1,7 @@
 export interface Producto {
   id_producto: number;
   id_empresa: number;
-  codigo_alfanumerico: number;
+  codigo_alfanumerico: string;
   codigo_barras?: string;
   nombre_producto: string;
   marca?: string;
