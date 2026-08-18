@@ -1,21 +1,20 @@
 export interface Producto {
   id_producto: number;
   id_empresa: number;
-  codigo_alfanumerico: string;
   codigo_barras?: string;
   nombre_producto: string;
   marca?: string;
   ubicacion?: string;
-  costo_compra: number;
-  precio_venta: number;
-  id_medida: number;
-  stock_unidades?: number;
-  stock_paquetes?: number;
-  unidades_por_paquete?: number;
-  bonificacion_paquete?: number;
-  stock_minimo?: number;
-  alerta_proyeccion?: boolean;
-  fecha_creacion?: string;
+  costo_compra?: number;
+  precio_venta?: number;
+  id_tipo_venta?: number;
+  stock_unidades: number;
+  stock_paquetes: number;
+  unidades_por_paquete: number;
+  bonificacion_paquete: number;
+  stock_minimo: number;
+  alerta_proyeccion: boolean;
+  fecha_creacion: string;
 }
 
 export interface Empresa {
@@ -39,6 +38,7 @@ enum enumRol {
   Socio = "Socio",
   Revendedor = "Revendedor",
   Cliente = "Cliente",
+  Camioneta = "Camioneta",
 }
 
 export interface SesionUsuario {
@@ -52,4 +52,24 @@ export interface Cuenta {
   id_auth: string;
   email: string;
   fecha_creacion?: string | null;
+}
+
+export interface StockRevendedor {
+  id_registro: number;
+  id_usuario: number;
+  id_producto: number;
+  cantidad: number;
+  estado: "En poder" | "Vendido" | "Devuelto";
+  fecha_entrega: string;
+  producto?: Producto;
+}
+
+export interface MovimientoStock {
+  id_movimiento?: number;
+  id_empresa: number;
+  id_producto: number;
+  fecha_movimiento?: string;
+  tipo_movimiento: "ENTRADA" | "SALIDA";
+  cantidad: number;
+  motivo: string;
 }

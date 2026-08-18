@@ -20,7 +20,10 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+<<<<<<< Updated upstream
       "bundler": "metro",
+=======
+>>>>>>> Stashed changes
       "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
@@ -33,7 +36,8 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
