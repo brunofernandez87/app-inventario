@@ -16,7 +16,7 @@ export default function IndexEnrutador() {
 
   // Si encontró un usuario activo, lo patea a tu sistema de depósito
   if (usuario) {
-    return <Redirect href="/home" />;
+    return <Redirect href="/productos" />;
   }
 
   // Si no hay sesión, lo patea al formulario para que ponga la clave
