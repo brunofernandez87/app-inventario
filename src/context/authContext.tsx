@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { supabase } from "../database/supabase";
 import { cerrarSesion, iniciarSesion } from "../service/auth";
@@ -21,6 +22,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const verificarSesionGuardada = async () => {
     setCargando(true);
     try {
+      // El control para el Checkbox
+      const quiereSerRecordado = await AsyncStorage.getItem("recordarme");
+
+      if (quiereSerRecordado === "false") {
+        // Si destildó la caja, destruimos la sesión silenciosamente antes de que la app cargue
+        await cerrarSesion();
+        setUsuario(null);
+        return; // Cortamos la ejecución acá para que se quede en el Login
+      }
+
+      // Si quiso ser recordado, sigue el flujo normal:
       // consulta si hay sesion activa en Supabase Auth
       const { data: { session } } = await supabase.auth.getSession();
 
