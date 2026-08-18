@@ -5,7 +5,7 @@ export const obtenerProductos = async (
 ): Promise<Producto[]> => {
   try {
     const { data, error } = await supabase
-      .from("productos")
+      .from("producto")
       .select("*")
       .eq("id_empresa", id_empresa);
     if (error) {
@@ -24,7 +24,7 @@ export const obtenerProducto = async (
 ): Promise<Producto | null> => {
   try {
     const { data, error } = await supabase
-      .from("productos")
+      .from("producto")
       .select("*")
       .eq("id_empresa", id_empresa)
       .eq("id_producto", id)
@@ -48,7 +48,7 @@ export const editarProducto = async (
 ) => {
   try {
     const { data, error } = await supabase
-      .from("productos")
+      .from("producto")
       .update(data_producto)
       .eq("id_producto", data_producto.id_producto)
       .eq("id_empresa", id_empresa)
@@ -69,7 +69,7 @@ export const eliminarProducto = async (
 ): Promise<boolean> => {
   try {
     const { data, error } = await supabase
-      .from("productos")
+      .from("producto")
       .delete()
       .eq("id_producto", id_producto)
       .eq("id_empresa", id_empresa);
@@ -87,7 +87,7 @@ type CreacionProducto = Omit<Producto, "id_producto" | "fecha_creacion">;
 export const crearProducto = async (data_producto: CreacionProducto) => {
   try {
     const { data, error } = await supabase
-      .from("productos")
+      .from("producto")
       .insert(data_producto)
       .select();
     if (error) {
