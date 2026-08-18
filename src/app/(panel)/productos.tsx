@@ -10,6 +10,8 @@ export default function Productos() {
       <Stack.Screen options={{ title: "Lista de productos" }} />
       {cargando ? (
         <Text>Cargando...</Text>
+      ) : !listaProducto || listaProducto.length === 0 ? (
+        <Text> no hay productos </Text>
       ) : (
         <FlatList
           // flatList ya viene con scroll view y podes limitar las columnas con num columns
