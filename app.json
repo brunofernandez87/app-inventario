@@ -20,10 +20,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-<<<<<<< Updated upstream
       "bundler": "metro",
-=======
->>>>>>> Stashed changes
       "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
