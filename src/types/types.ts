@@ -1,27 +1,28 @@
 export interface Producto {
   id_producto: number;
   id_empresa: number;
+  codigo_alfanumerico: string;
   codigo_barras?: string;
   nombre_producto: string;
   marca?: string;
   ubicacion?: string;
-  costo_compra?: number;
-  precio_venta?: number;
-  id_tipo_venta?: number;
-  stock_unidades: number;
-  stock_paquetes: number;
-  unidades_por_paquete: number;
-  bonificacion_paquete: number;
-  stock_minimo: number;
-  alerta_proyeccion: boolean;
-  fecha_creacion: string;
+  costo_compra: number;
+  precio_venta: number;
+  id_medida: number;
+  stock_unidades?: number;
+  stock_paquetes?: number;
+  unidades_por_paquete?: number;
+  bonificacion_paquete?: number;
+  stock_minimo?: number;
+  alerta_proyeccion?: boolean;
+  fecha_creacion?: string;
 }
 
 export interface Empresa {
   id_empresa: number;
   nombre_empresa: string;
   activo?: boolean | null;
-  fecha_creacion?: String | null; 
+  fecha_creacion?: String | null;
 }
 
 export interface Usuario {

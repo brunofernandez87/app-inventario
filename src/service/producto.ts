@@ -1,8 +1,13 @@
-import { supabase } from "../database/supabase";
 import { Producto } from "@/types/types";
-export const obtenerProductos = async (): Promise<Producto[]> => {
+import { supabase } from "../database/supabase";
+export const obtenerProductos = async (
+  id_empresa: number,
+): Promise<Producto[]> => {
   try {
-    const { data, error } = await supabase.from("productos").select("*");
+    const { data, error } = await supabase
+      .from("productos")
+      .select("*")
+      .eq("id_empresa", id_empresa);
     if (error) {
       console.error("Error en la base de datos", error.message);
       return [];
@@ -13,11 +18,15 @@ export const obtenerProductos = async (): Promise<Producto[]> => {
     return [];
   }
 };
-export const obtenerProducto = async (id: number): Promise<Producto | null> => {
+export const obtenerProducto = async (
+  id: number,
+  id_empresa: number,
+): Promise<Producto | null> => {
   try {
     const { data, error } = await supabase
       .from("productos")
       .select("*")
+      .eq("id_empresa", id_empresa)
       .eq("id_producto", id)
       .single();
     // TIP: Si sabés que el nombre es único y querés que devuelva
@@ -33,12 +42,16 @@ export const obtenerProducto = async (id: number): Promise<Producto | null> => {
     return null;
   }
 };
-export const editarProducto = async (data_producto: Partial<Producto>) => {
+export const editarProducto = async (
+  data_producto: Partial<Producto>,
+  id_empresa: number,
+) => {
   try {
     const { data, error } = await supabase
       .from("productos")
       .update(data_producto)
       .eq("id_producto", data_producto.id_producto)
+      .eq("id_empresa", id_empresa)
       .select();
     if (error) {
       console.error("Error en la base de datos", error.message);
@@ -52,12 +65,14 @@ export const editarProducto = async (data_producto: Partial<Producto>) => {
 };
 export const eliminarProducto = async (
   id_producto: number,
+  id_empresa: number,
 ): Promise<boolean> => {
   try {
     const { data, error } = await supabase
       .from("productos")
       .delete()
-      .eq("id_producto", id_producto);
+      .eq("id_producto", id_producto)
+      .eq("id_empresa", id_empresa);
     if (error) {
       console.error("Error en la base de datos", error.message);
       return false;
