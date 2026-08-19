@@ -5,12 +5,11 @@ import { editarProducto, obtenerProducto } from "./producto";
 
 export const obtenerRevendedoresYStock = async (id_empresa: number) => {
   try {
-    // 1. Traemos los usuarios Revendedor y Camioneta
+    // 1. Traemos los usuarios de la empresa
     const { data: usuarios, error: errUsuarios } = await supabase
       .from("usuario")
       .select("*")
-      .eq("id_empresa", id_empresa)
-      .in("rol", ["Revendedor", "Camioneta"]);
+      .eq("id_empresa", id_empresa);
 
     if (errUsuarios) throw errUsuarios;
 
