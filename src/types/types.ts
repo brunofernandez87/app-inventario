@@ -37,7 +37,6 @@ enum enumRol {
   Admin = "Admin",
   Socio = "Socio",
   Revendedor = "Revendedor",
-  Cliente = "Cliente",
   Camioneta = "Camioneta",
 }
 
