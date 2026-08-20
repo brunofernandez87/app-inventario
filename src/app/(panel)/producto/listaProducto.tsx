@@ -20,11 +20,20 @@ export default function Productos() {
     ({ item }: { item: any }) => (
       <View style={styles.fila}>
         {/* es  para que tenga tipo tabla*/}
+        <Text numberOfLines={1} style={[styles.celda, { width: 120 }]}>
+          {item.codigo_barras}
+        </Text>
+        <Text numberOfLines={1} style={[styles.celda, { width: 130 }]}>
+          {item.codigo_alfanumerico}
+        </Text>
         <Text numberOfLines={1} style={[styles.celda, { width: 150 }]}>
           {item.nombre_producto}
         </Text>
         <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
           {item.marca}
+        </Text>
+        <Text numberOfLines={1} style={[styles.celda, { width: 90 }]}>
+          {item.costo_compra}
         </Text>
         <Text numberOfLines={1} style={[styles.celda, { width: 90 }]}>
           {item.precio_venta}
@@ -38,8 +47,14 @@ export default function Productos() {
         <Text numberOfLines={1} style={[styles.celda, { width: 130 }]}>
           {item.unidades_por_paquete}
         </Text>
+        <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
+          medida
+        </Text>
         <Text numberOfLines={1} style={[styles.celda, { width: 130 }]}>
           {item.bonificacion_paquete}
+        </Text>
+        <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
+          {item.ubicacion}
         </Text>
       </View>
     ),
@@ -55,15 +70,38 @@ export default function Productos() {
         <Text> no hay productos </Text>
       ) : (
         <View>
-          <Link href="/producto/listaProducto" asChild>
+          <Link href="/productos" asChild>
             <Pressable>
-              <Text>Lista de Productos</Text>
+              <Text>Productos</Text>
             </Pressable>
           </Link>
-          <Text>Crear Producto</Text>
+          <Text>Lista de Productos</Text>
+          <Link href="/" asChild>
+            <Pressable>
+              <Text>Crear Producto</Text>
+            </Pressable>
+          </Link>
+          <Link href="/" asChild>
+            <Pressable>
+              <Text>Imprimir lista</Text>
+            </Pressable>
+          </Link>
+
           <ScrollView horizontal={true} style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>
               <View style={styles.fila}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 120 }]}
+                >
+                  Codigo de barras
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 130 }]}
+                >
+                  Codigo alfanumerico
+                </Text>
                 <Text
                   numberOfLines={1}
                   style={[styles.celdaEncabezado, { width: 150 }]}
@@ -80,7 +118,13 @@ export default function Productos() {
                   numberOfLines={1}
                   style={[styles.celdaEncabezado, { width: 90 }]}
                 >
-                  Precio
+                  Costo compra
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 90 }]}
+                >
+                  Precio venta
                 </Text>
                 <Text
                   numberOfLines={1}
@@ -102,9 +146,21 @@ export default function Productos() {
                 </Text>
                 <Text
                   numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 100 }]}
+                >
+                  Medida
+                </Text>
+                <Text
+                  numberOfLines={1}
                   style={[styles.celdaEncabezado, { width: 130 }]}
                 >
                   Bonificacion paquete
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 100 }]}
+                >
+                  Ubicacion
                 </Text>
               </View>
               <FlatList
