@@ -1,4 +1,7 @@
 import {
+  asignarStockARevendedor,
+  crearNuevoRevendedor,
+  obtenerProductosParaAsignar,
   obtenerRevendedoresYStock,
   procesarDevolucion,
   procesarVentaTotal,
@@ -10,6 +13,8 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform, // <-- Importamos Platform para detectar PC o Celu
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,8 +23,10 @@ import {
 } from "react-native";
 
 export default function StockRevendedorScreen() {
+  // Acá guardamos a TODOS (Incluso los Admin) para que el historial tenga sus nombres
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [stock, setStock] = useState<StockRevendedor[]>([]);
+  const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Estados de Modales Originales
@@ -36,16 +43,28 @@ export default function StockRevendedorScreen() {
   const [nuevoRevBonificacion, setNuevoRevBonificacion] = useState("");
 
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
+  const [asignarIdUsuario, setAsignarIdUsuario] = useState<number | null>(null);
+  const [asignarIdProducto, setAsignarIdProducto] = useState<number | null>(
+    null,
+  );
   const [asignarCantidad, setAsignarCantidad] = useState("");
   const [asignarEstado, setAsignarEstado] = useState("En poder");
+
+  const [modalSelectorVisible, setModalSelectorVisible] = useState(false);
+  const [tipoSelector, setTipoSelector] = useState<"usuario" | "producto">(
+    "usuario",
+  );
 
   const ID_EMPRESA_ACTUAL = 1;
 
   const cargarDatos = async () => {
     setLoading(true);
     const data = await obtenerRevendedoresYStock(ID_EMPRESA_ACTUAL);
+    const prods = await obtenerProductosParaAsignar(ID_EMPRESA_ACTUAL);
+
     setUsuarios(data.usuarios);
     setStock(data.stock);
+    setProductos(prods);
     setLoading(false);
   };
 
@@ -53,23 +72,36 @@ export default function StockRevendedorScreen() {
     cargarDatos();
   }, []);
 
-  // Funciones originales
   const handleVendido = (item: StockRevendedor) => {
-    Alert.alert(
-      "Confirmar",
-      `¿Marcar las ${item.cantidad} unidades como vendidas?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Vendido",
-          onPress: async () => {
-            const exito = await procesarVentaTotal(item, ID_EMPRESA_ACTUAL);
-            if (exito) cargarDatos();
-            else Alert.alert("Error", "No se pudo registrar la venta.");
-          },
-        },
-      ],
-    );
+    // Aislamos la lógica de venta para poder llamarla desde cualquier lado
+    const confirmarYVender = async () => {
+      setLoading(true);
+      const exito = await procesarVentaTotal(item, ID_EMPRESA_ACTUAL);
+      if (exito) {
+        await cargarDatos();
+      } else {
+        Alert.alert("Error", "No se pudo registrar la venta.");
+        setLoading(false);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      const seguro = window.confirm(
+        `¿Marcar las ${item.cantidad} unidades como vendidas?`,
+      );
+      if (seguro) {
+        confirmarYVender();
+      }
+    } else {
+      Alert.alert(
+        "Confirmar",
+        `¿Marcar las ${item.cantidad} unidades como vendidas?`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Vendido", onPress: confirmarYVender },
+        ],
+      );
+    }
   };
 
   const handleDevolver = (item: StockRevendedor) => {
@@ -90,30 +122,92 @@ export default function StockRevendedorScreen() {
       return;
     }
     setModalDevolucionVisible(false);
+    setLoading(true);
     const exito = await procesarDevolucion(
       itemSeleccionado,
       cant,
       ID_EMPRESA_ACTUAL,
     );
-    if (exito) cargarDatos();
-    else Alert.alert("Error", "No se pudo procesar la devolución.");
+    if (exito) await cargarDatos();
+    else {
+      Alert.alert("Error", "No se pudo procesar la devolución.");
+      setLoading(false);
+    }
   };
 
-  // Funciones visuales
-  const crearNuevoRevendedor = () => {
-    Alert.alert(
-      "Aviso",
-      `Crear: ${nuevoRevNombre}\nRol: ${nuevoRevRol}\nDescuento: ${nuevoRevDescuento || 0}%\nBonificación: ${nuevoRevBonificacion || 0}%`,
+  const handleCrearNuevoRevendedor = async () => {
+    if (nuevoRevNombre.trim() === "")
+      return Alert.alert("Atención", "Tenés que escribir el nombre.");
+
+    const valorDesc = parseFloat(nuevoRevDescuento) || 0;
+    const valorBonif = parseFloat(nuevoRevBonificacion) || 0;
+    const valorFinal = valorDesc > 0 ? valorDesc : valorBonif;
+
+    setLoading(true);
+    const exito = await crearNuevoRevendedor(
+      nuevoRevNombre,
+      nuevoRevRol as any,
+      valorFinal,
+      ID_EMPRESA_ACTUAL,
     );
-    setModalNuevoRevVisible(false);
+
+    if (exito) {
+      setModalNuevoRevVisible(false);
+      setNuevoRevNombre("");
+      setNuevoRevDescuento("");
+      setNuevoRevBonificacion("");
+      setNuevoRevRol("Revendedor");
+      await cargarDatos();
+    } else {
+      Alert.alert("Error", "No se pudo crear. Revisá la conexión.");
+      setLoading(false);
+    }
   };
 
-  const confirmarAsignacion = () => {
-    Alert.alert(
-      "Aviso",
-      `Asignar ${asignarCantidad} uds | Estado: ${asignarEstado}`,
+  const handleConfirmarAsignacion = async () => {
+    const cantidadFinal = parseFloat(asignarCantidad);
+    if (!asignarIdUsuario)
+      return Alert.alert("Atención", "Seleccioná un revendedor.");
+    if (!asignarIdProducto)
+      return Alert.alert("Atención", "Seleccioná un producto.");
+    if (isNaN(cantidadFinal) || cantidadFinal <= 0)
+      return Alert.alert("Atención", "Ingresá una cantidad válida mayor a 0.");
+
+    setLoading(true);
+    const exito = await asignarStockARevendedor(
+      asignarIdUsuario,
+      asignarIdProducto,
+      cantidadFinal,
+      asignarEstado as any,
+      ID_EMPRESA_ACTUAL,
     );
-    setModalAsignarVisible(false);
+
+    if (exito) {
+      setModalAsignarVisible(false);
+      setAsignarIdUsuario(null);
+      setAsignarIdProducto(null);
+      setAsignarCantidad("");
+      setAsignarEstado("En poder");
+      await cargarDatos();
+    } else {
+      Alert.alert("Error", "Hubo un problema al asignar el stock.");
+      setLoading(false);
+    }
+  };
+
+  const getNombreUsuarioSeleccionado = () => {
+    if (!asignarIdUsuario) return "Seleccionar...";
+    return (
+      usuarios.find((u) => u.id_usuario === asignarIdUsuario)?.nombre_usuario ||
+      "Desconocido"
+    );
+  };
+  const getNombreProductoSeleccionado = () => {
+    if (!asignarIdProducto) return "Seleccionar...";
+    return (
+      productos.find((p) => p.id_producto === asignarIdProducto)
+        ?.nombre_producto || "Desconocido"
+    );
   };
 
   const renderStock = ({ item }: { item: StockRevendedor }) => (
@@ -144,12 +238,10 @@ export default function StockRevendedorScreen() {
   const renderUsuario = ({ item: usuario }: { item: Usuario }) => {
     const descuento = (usuario as any).descuento || 0;
     const bonificacion =
-      usuario.rol === "camioneta" ? 0 : usuario.bonificacion || 0;
-
+      usuario.rol === "Camioneta" ? 0 : usuario.bonificacion || 0;
     const stockAsignado = stock.filter(
       (s) => s.id_usuario === usuario.id_usuario && s.estado === "En poder",
     );
-
     const textoBeneficio =
       descuento > 0
         ? `Descuento: ${descuento}%`
@@ -181,12 +273,12 @@ export default function StockRevendedorScreen() {
     );
   };
 
-  // --- HISTORIAL CON DATOS REALES (SIEMPRE VISIBLE) ---
   const renderHistorial = () => {
-    return (
-      <View style={styles.historyCard}>
-        <Text style={styles.historyMainTitle}>Historial de Asignaciones</Text>
+    const isWeb = Platform.OS === "web";
 
+    // Extraemos la tabla a una variable para no repetir código
+    const TablaHistorial = (
+      <View style={{ minWidth: isWeb ? "100%" : 600, paddingBottom: 10 }}>
         <View style={styles.tableHeaderRow}>
           <Text style={[styles.tableCol, styles.tableHeadTxt, { flex: 1 }]}>
             Fecha
@@ -204,7 +296,7 @@ export default function StockRevendedorScreen() {
               { flex: 0.8, textAlign: "center" },
             ]}
           >
-            Cantidad
+            Cant.
           </Text>
           <Text
             style={[
@@ -217,98 +309,116 @@ export default function StockRevendedorScreen() {
           </Text>
         </View>
 
-        {stock.length === 0 ? (
-          <Text
-            style={{
-              textAlign: "center",
-              color: "#94a3b8",
-              paddingVertical: 20,
-              fontStyle: "italic",
-            }}
-          >
-            No hay movimientos registrados todavía.
-          </Text>
-        ) : (
-          stock.map((fila, index) => {
-            const revendedorObj = usuarios.find(
-              (u) => u.id_usuario === fila.id_usuario,
-            );
-            const nombreRevendedor = revendedorObj
-              ? revendedorObj.nombre_usuario
-              : "Desconocido";
+        <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 350 }}>
+          {stock.length === 0 ? (
+            <Text
+              style={{
+                textAlign: "center",
+                color: "#94a3b8",
+                paddingVertical: 20,
+                fontStyle: "italic",
+              }}
+            >
+              No hay movimientos.
+            </Text>
+          ) : (
+            stock.map((fila, index) => {
+              const revendedorObj = usuarios.find(
+                (u) => u.id_usuario === fila.id_usuario,
+              );
+              const nombreRevendedor = revendedorObj
+                ? revendedorObj.nombre_usuario
+                : "Desconocido";
+              const nombreProducto =
+                (fila as any).producto?.nombre_producto || "Sin nombre";
+              const fechaStr = (fila as any).created_at
+                ? new Date((fila as any).created_at).toLocaleDateString("es-AR")
+                : "Reciente";
 
-            const nombreProducto =
-              (fila as any).producto?.nombre_producto || "Sin nombre";
-            const codigoProducto = (fila as any).producto?.codigo_barras || "-";
+              let badgeStyle = styles.badgeDefault;
+              let badgeTxtStyle = styles.badgeTxtDefault;
+              if (fila.estado === "En poder") {
+                badgeStyle = styles.badgeEnPoder;
+                badgeTxtStyle = styles.badgeTxtEnPoder;
+              }
+              if (fila.estado === "Vendido") {
+                badgeStyle = styles.badgeVendido;
+                badgeTxtStyle = styles.badgeTxtVendido;
+              }
+              if (fila.estado === "Devuelto") {
+                badgeStyle = styles.badgeDevuelto;
+                badgeTxtStyle = styles.badgeTxtDevuelto;
+              }
 
-            const fechaStr = (fila as any).created_at
-              ? new Date((fila as any).created_at).toLocaleDateString("es-AR")
-              : "Reciente";
-
-            let badgeStyle = styles.badgeDefault;
-            let badgeTxtStyle = styles.badgeTxtDefault;
-            if (fila.estado === "En poder") {
-              badgeStyle = styles.badgeEnPoder;
-              badgeTxtStyle = styles.badgeTxtEnPoder;
-            }
-            if (fila.estado === "Vendido") {
-              badgeStyle = styles.badgeVendido;
-              badgeTxtStyle = styles.badgeTxtVendido;
-            }
-            if (fila.estado === "Devuelto") {
-              badgeStyle = styles.badgeDevuelto;
-              badgeTxtStyle = styles.badgeTxtDevuelto;
-            }
-
-            return (
-              <View
-                key={fila.id_registro}
-                style={[
-                  styles.tableRow,
-                  index === stock.length - 1 && { borderBottomWidth: 0 },
-                ]}
-              >
-                <Text
-                  style={[styles.tableCol, styles.tableRowTxt, { flex: 1 }]}
-                >
-                  {fechaStr}
-                </Text>
-                <Text
-                  style={[
-                    styles.tableCol,
-                    styles.tableRowTxt,
-                    { flex: 1.5, fontWeight: "bold" },
-                  ]}
-                >
-                  {nombreRevendedor}
-                </Text>
-                <View style={[styles.tableCol, { flex: 2 }]}>
-                  <Text style={styles.tableRowTxt}>{nombreProducto}</Text>
-                  <Text style={styles.tableRowCode}>{codigoProducto}</Text>
-                </View>
-                <Text
-                  style={[
-                    styles.tableCol,
-                    styles.tableRowTxt,
-                    { flex: 0.8, textAlign: "center", fontWeight: "bold" },
-                  ]}
-                >
-                  {fila.cantidad}
-                </Text>
+              return (
                 <View
-                  style={[styles.tableCol, { flex: 1, alignItems: "center" }]}
+                  key={fila.id_registro}
+                  style={[
+                    styles.tableRow,
+                    index === stock.length - 1 && { borderBottomWidth: 0 },
+                  ]}
                 >
-                  <View style={badgeStyle}>
-                    <Text style={badgeTxtStyle}>{fila.estado}</Text>
+                  <Text
+                    style={[styles.tableCol, styles.tableRowTxt, { flex: 1 }]}
+                  >
+                    {fechaStr}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.tableCol,
+                      styles.tableRowTxt,
+                      { flex: 1.5, fontWeight: "bold" },
+                    ]}
+                  >
+                    {nombreRevendedor}
+                  </Text>
+                  <Text
+                    style={[styles.tableCol, styles.tableRowTxt, { flex: 2 }]}
+                  >
+                    {nombreProducto}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.tableCol,
+                      styles.tableRowTxt,
+                      { flex: 0.8, textAlign: "center", fontWeight: "bold" },
+                    ]}
+                  >
+                    {fila.cantidad}
+                  </Text>
+                  <View
+                    style={[styles.tableCol, { flex: 1, alignItems: "center" }]}
+                  >
+                    <View style={badgeStyle}>
+                      <Text style={badgeTxtStyle}>{fila.estado}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            );
-          })
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+    );
+
+    return (
+      <View style={styles.historyCard}>
+        <Text style={styles.historyMainTitle}>Historial de Asignaciones</Text>
+
+        {/* Lógica inteligente: Si es Web, dibuja la tabla al 100%. Si es Celu, le pone el Scroll horizontal */}
+        {isWeb ? (
+          TablaHistorial
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+            {TablaHistorial}
+          </ScrollView>
         )}
       </View>
     );
   };
+
+  // OCULTAMOS A LOS ADMIN DE LAS TARJETITAS PRINCIPALES Y DEL MODAL DE ASIGNAR
+  const usuariosFiltrados = usuarios.filter((u) => u.rol !== "Admin");
 
   return (
     <View style={styles.container}>
@@ -316,7 +426,7 @@ export default function StockRevendedorScreen() {
         <View>
           <Text style={styles.mainTitle}>Revendedores</Text>
           <Text style={styles.mainSubtitle}>
-            {usuarios.length} clientes especiales registrados
+            {usuariosFiltrados.length} clientes especiales registrados
           </Text>
         </View>
         <View style={styles.headerActionBtns}>
@@ -343,7 +453,7 @@ export default function StockRevendedorScreen() {
         />
       ) : (
         <FlatList
-          data={usuarios}
+          data={usuariosFiltrados}
           keyExtractor={(u) => u.id_usuario.toString()}
           renderItem={renderUsuario}
           contentContainerStyle={{ paddingBottom: 40 }}
@@ -351,7 +461,7 @@ export default function StockRevendedorScreen() {
         />
       )}
 
-      {/* MODALES */}
+      {/* MODAL 1: DEVOLUCIÓN */}
       <Modal
         visible={modalDevolucionVisible}
         transparent={true}
@@ -385,6 +495,7 @@ export default function StockRevendedorScreen() {
         </View>
       </Modal>
 
+      {/* MODAL 2: NUEVO REVENDEDOR */}
       <Modal
         visible={modalNuevoRevVisible}
         transparent={true}
@@ -393,7 +504,6 @@ export default function StockRevendedorScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Nuevo Revendedor / Socio</Text>
-
             <Text style={styles.label}>Nombre *</Text>
             <TextInput
               style={styles.modalInputText}
@@ -401,7 +511,6 @@ export default function StockRevendedorScreen() {
               value={nuevoRevNombre}
               onChangeText={setNuevoRevNombre}
             />
-
             <Text style={styles.label}>Rol</Text>
             <View style={styles.roleSelectionGroup}>
               <TouchableOpacity
@@ -446,7 +555,11 @@ export default function StockRevendedorScreen() {
                     ? styles.roleBtnActive
                     : styles.roleBtnInactive
                 }
-                onPress={() => setNuevoRevRol("Camioneta")}
+                onPress={() => {
+                  setNuevoRevRol("Camioneta");
+                  setNuevoRevDescuento("");
+                  setNuevoRevBonificacion("");
+                }}
               >
                 <Text
                   style={
@@ -459,36 +572,36 @@ export default function StockRevendedorScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Descuento (%)</Text>
-                <TextInput
-                  style={styles.modalInputText}
-                  keyboardType="numeric"
-                  placeholder="Ej: 10"
-                  value={nuevoRevDescuento}
-                  onChangeText={(texto) => {
-                    setNuevoRevDescuento(texto);
-                    if (texto.length > 0) setNuevoRevBonificacion("");
-                  }}
-                />
+            {nuevoRevRol !== "Camioneta" && (
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Descuento (%)</Text>
+                  <TextInput
+                    style={styles.modalInputText}
+                    keyboardType="numeric"
+                    placeholder="Ej: 10"
+                    value={nuevoRevDescuento}
+                    onChangeText={(texto) => {
+                      setNuevoRevDescuento(texto);
+                      if (texto.length > 0) setNuevoRevBonificacion("");
+                    }}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Bonificación (%)</Text>
+                  <TextInput
+                    style={styles.modalInputText}
+                    keyboardType="numeric"
+                    placeholder="Ej: 15"
+                    value={nuevoRevBonificacion}
+                    onChangeText={(texto) => {
+                      setNuevoRevBonificacion(texto);
+                      if (texto.length > 0) setNuevoRevDescuento("");
+                    }}
+                  />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Bonificación (%)</Text>
-                <TextInput
-                  style={styles.modalInputText}
-                  keyboardType="numeric"
-                  placeholder="Ej: 15"
-                  value={nuevoRevBonificacion}
-                  onChangeText={(texto) => {
-                    setNuevoRevBonificacion(texto);
-                    if (texto.length > 0) setNuevoRevDescuento("");
-                  }}
-                />
-              </View>
-            </View>
-
+            )}
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.modalBtnCancel}
@@ -498,7 +611,7 @@ export default function StockRevendedorScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalBtnConfirm}
-                onPress={crearNuevoRevendedor}
+                onPress={handleCrearNuevoRevendedor}
               >
                 <Text style={styles.modalTxtConfirm}>Crear</Text>
               </TouchableOpacity>
@@ -507,6 +620,7 @@ export default function StockRevendedorScreen() {
         </View>
       </Modal>
 
+      {/* MODAL 3: ASIGNAR STOCK */}
       <Modal
         visible={modalAsignarVisible}
         transparent={true}
@@ -515,17 +629,30 @@ export default function StockRevendedorScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Asignar Stock a Revendedor</Text>
-
             <Text style={styles.label}>Revendedor *</Text>
-            <TouchableOpacity style={styles.mockDropdown}>
-              <Text style={styles.mockDropdownTxt}>Seleccionar...</Text>
+            <TouchableOpacity
+              style={styles.mockDropdown}
+              onPress={() => {
+                setTipoSelector("usuario");
+                setModalSelectorVisible(true);
+              }}
+            >
+              <Text style={styles.mockDropdownTxt}>
+                {getNombreUsuarioSeleccionado()}
+              </Text>
             </TouchableOpacity>
-
             <Text style={styles.label}>Producto *</Text>
-            <TouchableOpacity style={styles.mockDropdown}>
-              <Text style={styles.mockDropdownTxt}>Seleccionar...</Text>
+            <TouchableOpacity
+              style={styles.mockDropdown}
+              onPress={() => {
+                setTipoSelector("producto");
+                setModalSelectorVisible(true);
+              }}
+            >
+              <Text style={styles.mockDropdownTxt}>
+                {getNombreProductoSeleccionado()}
+              </Text>
             </TouchableOpacity>
-
             <Text style={styles.label}>Cantidad *</Text>
             <TextInput
               style={styles.modalInputText}
@@ -534,7 +661,6 @@ export default function StockRevendedorScreen() {
               value={asignarCantidad}
               onChangeText={setAsignarCantidad}
             />
-
             <Text style={styles.label}>Estado de entrega</Text>
             <View style={styles.stateSelectionGroup}>
               <TouchableOpacity
@@ -592,7 +718,6 @@ export default function StockRevendedorScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.modalBtnCancel}
@@ -602,7 +727,7 @@ export default function StockRevendedorScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalBtnConfirm}
-                onPress={confirmarAsignacion}
+                onPress={handleConfirmarAsignacion}
               >
                 <Text style={styles.modalTxtConfirm}>Asignar</Text>
               </TouchableOpacity>
@@ -610,14 +735,65 @@ export default function StockRevendedorScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL 4: EL SELECTOR DESPLEGABLE */}
+      <Modal
+        visible={modalSelectorVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: "80%" }]}>
+            <Text style={styles.modalTitle}>
+              Seleccionar{" "}
+              {tipoSelector === "usuario" ? "Revendedor" : "Producto"}
+            </Text>
+
+            <FlatList
+              data={tipoSelector === "usuario" ? usuariosFiltrados : productos}
+              keyExtractor={(item) =>
+                tipoSelector === "usuario"
+                  ? item.id_usuario.toString()
+                  : item.id_producto.toString()
+              }
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.selectorItem}
+                  onPress={() => {
+                    if (tipoSelector === "usuario")
+                      setAsignarIdUsuario(item.id_usuario);
+                    if (tipoSelector === "producto")
+                      setAsignarIdProducto(item.id_producto);
+                    setModalSelectorVisible(false);
+                  }}
+                >
+                  <Text style={styles.selectorItemTxt}>
+                    {tipoSelector === "usuario"
+                      ? item.nombre_usuario
+                      : `${item.nombre_producto} (Stock: ${item.stock_unidades || 0})`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+
+            <TouchableOpacity
+              style={[styles.modalBtnCancel, { marginTop: 16 }]}
+              onPress={() => setModalSelectorVisible(false)}
+            >
+              <Text style={[styles.modalTxtCancel, { textAlign: "center" }]}>
+                Cerrar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-// === ESTILOS ===
+// === ESTILOS (Los mismos) ===
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8fafc", padding: 16 },
-
   headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -645,7 +821,6 @@ const styles = StyleSheet.create({
     borderColor: "#cbd5e1",
   },
   txtHeaderSecondary: { color: "#334155", fontWeight: "bold" },
-
   userCard: {
     backgroundColor: "#ffffff",
     padding: 16,
@@ -684,7 +859,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 10,
   },
-
   stockCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -718,7 +892,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   txtDevolver: { color: "#c2410c", fontWeight: "bold", fontSize: 13 },
-
   historyCard: {
     backgroundColor: "#ffffff",
     padding: 20,
@@ -751,7 +924,6 @@ const styles = StyleSheet.create({
   tableHeadTxt: { color: "#64748b", fontSize: 13, fontWeight: "600" },
   tableRowTxt: { color: "#334155", fontSize: 14 },
   tableRowCode: { color: "#94a3b8", fontSize: 12, marginTop: 2 },
-
   badgeDefault: {
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -780,7 +952,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f1f5f9",
   },
   badgeTxtDevuelto: { color: "#64748b", fontWeight: "bold", fontSize: 12 },
-
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
@@ -831,12 +1002,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#cbd5e1",
     borderRadius: 8,
-    padding: 12,
-    backgroundColor: "#fff",
+    padding: 14,
+    backgroundColor: "#f8fafc",
     marginBottom: 4,
   },
-  mockDropdownTxt: { color: "#475569", fontSize: 16 },
-
+  mockDropdownTxt: { color: "#0f172a", fontSize: 16, fontWeight: "500" },
+  selectorItem: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  selectorItemTxt: { fontSize: 16, color: "#334155" },
   roleSelectionGroup: { flexDirection: "row", gap: 8, marginBottom: 8 },
   roleBtnActive: {
     flex: 1,
@@ -856,7 +1032,6 @@ const styles = StyleSheet.create({
   },
   roleTxtActive: { color: "#fff", fontWeight: "bold" },
   roleTxtInactive: { color: "#475569", fontWeight: "bold" },
-
   stateSelectionGroup: { flexDirection: "row", gap: 8, marginBottom: 16 },
   stateBtnActive: {
     flex: 1,
@@ -876,7 +1051,6 @@ const styles = StyleSheet.create({
   },
   stateTxtActive: { color: "#fff", fontWeight: "bold", fontSize: 13 },
   stateTxtInactive: { color: "#64748b", fontWeight: "bold", fontSize: 13 },
-
   modalBtnRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
