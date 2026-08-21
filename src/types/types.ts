@@ -15,6 +15,7 @@ export interface Producto {
   bonificacion_paquete?: number;
   stock_minimo?: number;
   alerta_proyeccion?: boolean;
+  alerta_stock?: boolean;
   fecha_creacion?: string;
 }
 
