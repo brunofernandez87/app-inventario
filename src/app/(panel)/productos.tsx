@@ -1,15 +1,19 @@
 import { useListaProducto } from "@/context/listaProductoContext";
+import { BlurView } from "expo-blur";
 import { Link, Stack } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import CreacionProducto from "../producto/crearProducto";
 export default function Productos() {
+  const [modalVisible, setModalVisible] = useState(false);
   const { listaProducto, setlistaProducto, cargando, fetchProducts } =
     useListaProducto();
   const memoizedKeyExtractor = useCallback(
@@ -48,7 +52,7 @@ export default function Productos() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Stack.Screen options={{ title: "Lista de productos" }} />
+      <Stack.Screen options={{ title: "Productos" }} />
       {cargando ? (
         <Text>Cargando...</Text>
       ) : !listaProducto || listaProducto.length === 0 ? (
@@ -60,7 +64,9 @@ export default function Productos() {
               <Text>Lista de Productos</Text>
             </Pressable>
           </Link>
-          <Text>Crear Producto</Text>
+          <Pressable onPress={() => setModalVisible(true)}>
+            <Text>Crear Producto +</Text>
+          </Pressable>
           <ScrollView horizontal={true} style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>
               <View style={styles.fila}>
@@ -124,10 +130,37 @@ export default function Productos() {
           </ScrollView>
         </View>
       )}
+      <Modal
+        animationType="fade"
+        transparent={true} // Permite ver el fondo oscuro
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)} // Permite cerrar con el botón "Atrás" de Android
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
+          <View style={styles.modalVentana}>
+            <CreacionProducto onClose={() => setModalVisible(false)} />
+          </View>
+        </BlurView>
+      </Modal>
     </View>
   );
 }
 const styles = StyleSheet.create({
+  modalFondo: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // El fondo oscuro de la imagen
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalVentana: {
+    width: "100%",
+    maxWidth: 700, // Limita el ancho en la PC
+    maxHeight: "90%", // Evita que se salga de la pantalla si es muy largo
+    backgroundColor: "white",
+    borderRadius: 12,
+    overflow: "hidden", // Para que el ScrollView interno no tape los bordes redondos
+  },
   fila: {
     flexDirection: "row",
     borderBottomWidth: 1,
