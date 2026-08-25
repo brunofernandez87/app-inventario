@@ -42,6 +42,40 @@ export const obtenerProducto = async (
     return null;
   }
 };
+export const obtenerStockBajo = async (id_empresa: number) => {
+  try {
+    const { data, error } = await supabase
+      .from("producto")
+      .select("*")
+      .eq("id_empresa", id_empresa)
+      .eq("alerta_stock", true);
+    if (error) {
+      console.error("Error en la base de datos", error.message);
+      return null;
+    }
+    return data || null;
+  } catch (error) {
+    console.error("Error de conexion/ejecucion: ", error);
+    return null;
+  }
+};
+export const obtenerAlertaProyeccion = async (id_empresa: number) => {
+  try {
+    const { data, error } = await supabase
+      .from("vista_productos_con_proyeccion")
+      .select("*")
+      .eq("id_empresa", id_empresa)
+      .eq("alerta_proyeccion", true);
+    if (error) {
+      console.error("Error en la base de datos", error.message);
+      return null;
+    }
+    return data || null;
+  } catch (error) {
+    console.error("Error de conexion/ejecucion: ", error);
+    return null;
+  }
+};
 export const editarProducto = async (
   data_producto: Partial<Producto>,
   id_empresa: number,
