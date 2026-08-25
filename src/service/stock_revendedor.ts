@@ -12,16 +12,13 @@ export const obtenerRevendedoresYStock = async (id_empresa: number) => {
 
     if (errUsuarios) throw errUsuarios;
 
-    // MAGIA 1: Le pedimos a Supabase que traiga el id_producto también adentro de producto
-    const { data: stock, error: errStock } = await supabase
-      .from("stock_revendedor")
-      .select(
-        `
+    const { data: stock, error: errStock } = await supabase.from(
+      "stock_revendedor",
+    ).select(`
         *,
         id_producto,
         producto:id_producto ( id_producto, nombre_producto, precio_venta, codigo_barras )
-      `,
-      );
+      `);
 
     if (errStock) throw errStock;
 
@@ -41,7 +38,6 @@ export const procesarDevolucion = async (
   id_empresa: number,
 ): Promise<boolean> => {
   try {
-    // MAGIA 2: Rescate de IDs por si Supabase nos los mandó vacíos
     const idRegistro = registro.id_registro;
     const idProducto =
       registro.id_producto || (registro as any).producto?.id_producto;
@@ -56,7 +52,6 @@ export const procesarDevolucion = async (
 
     const cantidad_restante = registro.cantidad - cantidad_devuelta;
 
-    // 1. Actualizar el registro de stock_revendedor
     if (cantidad_restante <= 0) {
       await supabase
         .from("stock_revendedor")
@@ -76,7 +71,6 @@ export const procesarDevolucion = async (
       });
     }
 
-    // 2. Devolver la mercadería al stock central
     const productoActual = await obtenerProducto(idProducto, id_empresa);
 
     if (productoActual && productoActual.stock_unidades !== undefined) {
@@ -89,7 +83,6 @@ export const procesarDevolucion = async (
       );
     }
 
-    // 3. Registrar el movimiento
     await crearMovimientoStock({
       id_empresa: id_empresa,
       id_producto: idProducto,
@@ -110,7 +103,6 @@ export const procesarVentaTotal = async (
   id_empresa: number,
 ): Promise<boolean> => {
   try {
-    // MAGIA 2: Rescate de IDs para la venta
     const idRegistro = registro.id_registro;
     const idProducto =
       registro.id_producto || (registro as any).producto?.id_producto;
@@ -130,7 +122,7 @@ export const procesarVentaTotal = async (
 
     await crearMovimientoStock({
       id_empresa: id_empresa,
-      id_producto: idProducto, // Usamos el ID blindado acá
+      id_producto: idProducto,
       tipo_movimiento: "SALIDA",
       cantidad: registro.cantidad,
       motivo: "Venta concretada por revendedor/camioneta",
@@ -148,6 +140,7 @@ export const crearNuevoRevendedor = async (
   rol: "Revendedor" | "Socio" | "Camioneta",
   bonificacion: number,
   id_empresa: number,
+  permite_devolucion: boolean,
 ): Promise<boolean> => {
   try {
     const { error } = await supabase.from("usuario").insert({
@@ -155,6 +148,7 @@ export const crearNuevoRevendedor = async (
       nombre_usuario: nombre_usuario,
       rol: rol,
       bonificacion: bonificacion > 0 ? bonificacion : null,
+      permite_devolucion: permite_devolucion,
     });
 
     if (error) throw error;
@@ -188,7 +182,6 @@ export const asignarStockARevendedor = async (
   id_empresa: number,
 ): Promise<boolean> => {
   try {
-    // 1. Guardamos el registro en la tabla del revendedor
     const { error: errInsert } = await supabase
       .from("stock_revendedor")
       .insert({
@@ -200,7 +193,6 @@ export const asignarStockARevendedor = async (
 
     if (errInsert) throw errInsert;
 
-    // 2. Lógica de inventario
     if (estado === "En poder" || estado === "Vendido") {
       const productoActual = await obtenerProducto(id_producto, id_empresa);
       if (productoActual && productoActual.stock_unidades !== undefined) {

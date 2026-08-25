@@ -33,6 +33,7 @@ export interface Usuario {
   rol: enumRol;
   bonificacion?: number | null;
   fecha_creacion?: string | null;
+  permite_devolucion: boolean;
 }
 
 enum enumRol {
