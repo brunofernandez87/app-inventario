@@ -105,42 +105,55 @@ export default function ListaProductos() {
   return (
     <View style={{ flex: 1, padding: celular ? 10 : 20 }}>
       <Stack.Screen options={{ title: "Lista de productos" }} />
-      <Pressable onPress={() => setModalVisible(true)}>
-        <Text>Crear Producto +</Text>
-      </Pressable>
-      <Link href="/" asChild>
-        <Pressable>
-          <Text>Imprimir lista</Text>
+      <View style={styles.toolbar}>
+        <Pressable
+          onPress={() => setModalVisible(true)}
+          style={styles.botonToolbar}
+        >
+          <Text style={styles.textoBotonToolbar}>Crear Producto +</Text>
         </Pressable>
-      </Link>
-      <Pressable
-        onPress={stockBajo}
-        style={{
-          backgroundColor: filterStockBajo ? "#2563eb" : "#e5e7eb",
-          padding: 10,
-          borderRadius: 5,
-          marginVertical: 5,
-        }}
-      >
-        <Text style={{ color: filterStockBajo ? "white" : "black" }}>
-          {filterStockBajo ? "☑ Solo stock bajo" : "☐ Solo stock bajo"}
-        </Text>
-      </Pressable>
-      <Pressable
-        onPress={alerta_proyeccion}
-        style={{
-          backgroundColor: filterAlerta ? "#2563eb" : "#e5e7eb",
-          padding: 10,
-          borderRadius: 5,
-          marginVertical: 5,
-        }}
-      >
-        <Text>
-          {filterAlerta
-            ? "☑ Solo productos con alerta"
-            : "☐ Solo productos con alerta"}
-        </Text>
-      </Pressable>
+        <Link href="/" asChild>
+          <Pressable style={styles.botonToolbar}>
+            <Text style={styles.textoBotonToolbar}>Imprimir lista</Text>
+          </Pressable>
+        </Link>
+        <Pressable
+          onPress={stockBajo}
+          style={[
+            styles.botonToolbar,
+            {
+              backgroundColor: filterStockBajo ? "#2563eb" : "#e5e7eb",
+              padding: 10,
+              borderRadius: 5,
+              marginVertical: 5,
+            },
+          ]}
+        >
+          <Text style={[{ color: filterStockBajo ? "white" : "black" }]}>
+            {filterStockBajo ? "☑ Solo stock bajo" : "☐ Solo stock bajo"}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={alerta_proyeccion}
+          style={{
+            backgroundColor: filterAlerta ? "#2563eb" : "#e5e7eb",
+            padding: 10,
+            borderRadius: 5,
+            marginVertical: 5,
+          }}
+        >
+          <Text
+            style={{
+              color: filterAlerta ? "white" : "#444",
+              fontWeight: "600",
+            }}
+          >
+            {filterAlerta
+              ? "☑ Solo productos con alerta"
+              : "☐ Solo productos con alerta"}
+          </Text>
+        </Pressable>
+      </View>
       {cargando ? (
         <Text>Cargando...</Text>
       ) : !lista || lista.length === 0 ? (
@@ -305,5 +318,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 4,
     textAlign: "center", // Centra el texto como en Excel
+  },
+  toolbar: {
+    flexDirection: "row", // Los pone uno al lado del otro
+    flexWrap: "wrap", // Si no entran en la pantalla del celular, los baja de renglón
+    gap: 10, // Espacio entre los botones (funciona perfecto en web y react native moderno)
+    marginBottom: 15, // Espacio para que no se peguen a la tabla
+    alignItems: "center",
+  },
+  botonToolbar: {
+    backgroundColor: "#e5e7eb", // Gris clarito por defecto
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  textoBotonToolbar: {
+    color: "#444",
+    fontWeight: "bold",
   },
 });
