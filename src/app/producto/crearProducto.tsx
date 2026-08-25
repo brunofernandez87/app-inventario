@@ -1,4 +1,5 @@
 import { useEmpresa } from "@/context/empresaContext";
+import { useListaProducto } from "@/context/listaProductoContext";
 import { crearProducto } from "@/service/producto";
 import { Picker } from "@react-native-picker/picker";
 import { useState } from "react";
@@ -27,6 +28,7 @@ export default function CreacionProducto({ onClose }) {
   const [stock_minimo, setStock_minimo] = useState("");
   const { empresa } = useEmpresa();
   const listaMedida = ["unidad", "kilogramo"];
+  const { fetchProducts } = useListaProducto();
   const formularioIncompleto =
     nombre.trim() == "" ||
     codigo_alfanumerico.trim() == "" ||
@@ -60,6 +62,7 @@ export default function CreacionProducto({ onClose }) {
     };
     const respuesta = await crearProducto(nuevoProducto);
     if (respuesta) {
+      await fetchProducts();
       alert("El producto se creo correctamente");
       onClose();
     }
@@ -144,7 +147,7 @@ export default function CreacionProducto({ onClose }) {
             ))}
           </Picker>
         </View>
-        <Text style={styles.label}>Stock por unidades</Text>
+        <Text style={styles.label}>Stock expresado en {medida}</Text>
         <TextInput
           style={styles.input}
           value={stock_unidades}
@@ -155,7 +158,7 @@ export default function CreacionProducto({ onClose }) {
           onSubmitEditing={guardarProducto}
         />
 
-        <Text style={styles.label}>Unidades por paquetes</Text>
+        <Text style={styles.label}>{medida} por paquetes</Text>
         <TextInput
           style={styles.input}
           value={unidades_paquete}
