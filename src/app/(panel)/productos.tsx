@@ -10,9 +10,12 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import CreacionProducto from "../producto/crearProducto";
 export default function Productos() {
+  const { width } = useWindowDimensions();
+  const celular = width < 768;
   const [modalVisible, setModalVisible] = useState(false);
   const { listaProducto, setlistaProducto, cargando, fetchProducts } =
     useListaProducto();
@@ -51,14 +54,14 @@ export default function Productos() {
   );
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, padding: celular ? 10 : 20 }}>
       <Stack.Screen options={{ title: "Productos" }} />
       {cargando ? (
         <Text>Cargando...</Text>
       ) : !listaProducto || listaProducto.length === 0 ? (
         <Text> no hay productos </Text>
       ) : (
-        <View>
+        <View style={{ flex: 1 }}>
           <Link href="/producto/listaProducto" asChild>
             <Pressable>
               <Text>Lista de Productos</Text>
@@ -137,7 +140,9 @@ export default function Productos() {
         onRequestClose={() => setModalVisible(false)} // Permite cerrar con el botón "Atrás" de Android
       >
         <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
-          <View style={styles.modalVentana}>
+          <View
+            style={[styles.modalVentana, celular && styles.modalVentanaCelular]}
+          >
             <CreacionProducto onClose={() => setModalVisible(false)} />
           </View>
         </BlurView>
@@ -148,7 +153,6 @@ export default function Productos() {
 const styles = StyleSheet.create({
   modalFondo: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // El fondo oscuro de la imagen
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -160,6 +164,10 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 12,
     overflow: "hidden", // Para que el ScrollView interno no tape los bordes redondos
+  },
+  modalVentanaCelular: {
+    maxHeight: "95%",
+    padding: 5, // Un poco menos de espacio desperdiciado en los bordes para el celu
   },
   fila: {
     flexDirection: "row",
