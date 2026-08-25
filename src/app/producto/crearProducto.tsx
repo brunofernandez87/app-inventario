@@ -29,6 +29,38 @@ export default function CreacionProducto({ onClose }) {
   const { empresa } = useEmpresa();
   const listaMedida = ["unidad", "kilogramo"];
   const { fetchProducts } = useListaProducto();
+  const cambiarUnidadesPorPaquete = (valor) => {
+    setUnidades_paquete(valor);
+    const unidsPorPaq = Number(valor);
+    if (unidsPorPaq > 0) {
+      if (stock_paquetes !== "") {
+        // Si ya había escrito paquetes, actualizamos el total de unidades
+        setStock_unidades(String(Number(stock_paquetes) * unidsPorPaq));
+      } else if (stock_unidades !== "") {
+        // Si no había paquetes pero sí unidades, calculamos los paquetes
+        setStock_paquetes(String(Number(stock_unidades) / unidsPorPaq));
+      }
+    }
+  };
+  // Cuando el usuario escribe cuántos PAQUETES tiene
+  const cambiarStockPaquetes = (valor) => {
+    setStock_paquetes(valor);
+    const unidsPorPaq = Number(unidades_paquete);
+
+    // Si sabemos cuántas unidades trae el paquete, multiplicamos
+    if (unidsPorPaq > 0 && valor !== "") {
+      setStock_unidades(String(Number(valor) * unidsPorPaq));
+    }
+  };
+  // Cuando el usuario escribe cuántas UNIDADES tiene
+  const cambiarStockUnidades = (valor) => {
+    setStock_unidades(valor);
+    const unidsPorPaq = Number(unidades_paquete);
+    // Si sabemos cuántas unidades trae el paquete, dividimos
+    if (unidsPorPaq > 0 && valor !== "") {
+      setStock_paquetes(String(Number(valor) / unidsPorPaq));
+    }
+  };
   const formularioIncompleto =
     nombre.trim() == "" ||
     codigo_alfanumerico.trim() == "" ||
@@ -151,7 +183,7 @@ export default function CreacionProducto({ onClose }) {
         <TextInput
           style={styles.input}
           value={stock_unidades}
-          onChangeText={setStock_unidades}
+          onChangeText={cambiarStockUnidades}
           placeholder="12"
           placeholderTextColor="#9ca3af"
           keyboardType="numeric"
@@ -162,7 +194,7 @@ export default function CreacionProducto({ onClose }) {
         <TextInput
           style={styles.input}
           value={unidades_paquete}
-          onChangeText={setUnidades_paquete}
+          onChangeText={cambiarUnidadesPorPaquete}
           placeholder="6"
           placeholderTextColor="#9ca3af"
           keyboardType="numeric"
@@ -173,14 +205,16 @@ export default function CreacionProducto({ onClose }) {
         <TextInput
           style={styles.input}
           value={stock_paquetes}
-          onChangeText={setStock_paquetes}
+          onChangeText={cambiarStockPaquetes}
           placeholder="2"
           placeholderTextColor="#9ca3af"
           keyboardType="numeric"
           onSubmitEditing={guardarProducto}
         />
 
-        <Text style={styles.label}>Bonificacion por paquete cerrado</Text>
+        <Text style={styles.label}>
+          Bonificacion por paquete cerrado (sin el signo %)
+        </Text>
         <TextInput
           style={styles.input}
           value={bonificacion_paquete}
