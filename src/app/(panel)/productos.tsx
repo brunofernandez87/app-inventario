@@ -10,9 +10,12 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import CreacionProducto from "../producto/crearProducto";
-export default function Productos() {
+export default function ListaProductos() {
+  const { width } = useWindowDimensions();
+  const celular = width < 768;
   const [modalVisible, setModalVisible] = useState(false);
   const { listaProducto, setlistaProducto, cargando, fetchProducts } =
     useListaProducto();
@@ -24,11 +27,20 @@ export default function Productos() {
     ({ item }: { item: any }) => (
       <View style={styles.fila}>
         {/* es  para que tenga tipo tabla*/}
+        <Text numberOfLines={1} style={[styles.celda, { width: 120 }]}>
+          {item.codigo_barras}
+        </Text>
+        <Text numberOfLines={1} style={[styles.celda, { width: 130 }]}>
+          {item.codigo_alfanumerico}
+        </Text>
         <Text numberOfLines={1} style={[styles.celda, { width: 150 }]}>
           {item.nombre_producto}
         </Text>
         <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
           {item.marca}
+        </Text>
+        <Text numberOfLines={1} style={[styles.celda, { width: 90 }]}>
+          {item.costo_compra}
         </Text>
         <Text numberOfLines={1} style={[styles.celda, { width: 90 }]}>
           {item.precio_venta}
@@ -42,8 +54,14 @@ export default function Productos() {
         <Text numberOfLines={1} style={[styles.celda, { width: 130 }]}>
           {item.unidades_por_paquete}
         </Text>
+        <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
+          medida
+        </Text>
         <Text numberOfLines={1} style={[styles.celda, { width: 130 }]}>
           {item.bonificacion_paquete}
+        </Text>
+        <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
+          {item.ubicacion}
         </Text>
       </View>
     ),
@@ -51,25 +69,40 @@ export default function Productos() {
   );
 
   return (
-    <View style={{ flex: 1 }}>
-      <Stack.Screen options={{ title: "Productos" }} />
+    <View style={{ flex: 1, padding: celular ? 10 : 20 }}>
+      <Stack.Screen options={{ title: "Lista de productos" }} />
       {cargando ? (
         <Text>Cargando...</Text>
       ) : !listaProducto || listaProducto.length === 0 ? (
         <Text> no hay productos </Text>
       ) : (
-        <View>
-          <Link href="/producto/listaProducto" asChild>
-            <Pressable>
-              <Text>Lista de Productos</Text>
-            </Pressable>
-          </Link>
+        <View style={{ flex: 1 }}>
+          <Text>Lista de Productos</Text>
           <Pressable onPress={() => setModalVisible(true)}>
             <Text>Crear Producto +</Text>
           </Pressable>
+          <Link href="/" asChild>
+            <Pressable>
+              <Text>Imprimir lista</Text>
+            </Pressable>
+          </Link>
+          <Text>Solo stock bajo</Text>
+          <Text>Solo productos con alerta</Text>
           <ScrollView horizontal={true} style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>
               <View style={styles.fila}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 120 }]}
+                >
+                  Codigo de barras
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 130 }]}
+                >
+                  Codigo alfanumerico
+                </Text>
                 <Text
                   numberOfLines={1}
                   style={[styles.celdaEncabezado, { width: 150 }]}
@@ -86,7 +119,13 @@ export default function Productos() {
                   numberOfLines={1}
                   style={[styles.celdaEncabezado, { width: 90 }]}
                 >
-                  Precio
+                  Costo compra
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 90 }]}
+                >
+                  Precio venta
                 </Text>
                 <Text
                   numberOfLines={1}
@@ -108,9 +147,21 @@ export default function Productos() {
                 </Text>
                 <Text
                   numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 100 }]}
+                >
+                  Medida
+                </Text>
+                <Text
+                  numberOfLines={1}
                   style={[styles.celdaEncabezado, { width: 130 }]}
                 >
                   Bonificacion paquete
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.celdaEncabezado, { width: 100 }]}
+                >
+                  Ubicacion
                 </Text>
               </View>
               <FlatList
@@ -137,7 +188,9 @@ export default function Productos() {
         onRequestClose={() => setModalVisible(false)} // Permite cerrar con el botón "Atrás" de Android
       >
         <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
-          <View style={styles.modalVentana}>
+          <View
+            style={[styles.modalVentana, celular && styles.modalVentanaCelular]}
+          >
             <CreacionProducto onClose={() => setModalVisible(false)} />
           </View>
         </BlurView>
@@ -148,7 +201,6 @@ export default function Productos() {
 const styles = StyleSheet.create({
   modalFondo: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // El fondo oscuro de la imagen
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -160,6 +212,10 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 12,
     overflow: "hidden", // Para que el ScrollView interno no tape los bordes redondos
+  },
+  modalVentanaCelular: {
+    maxHeight: "95%",
+    padding: 5, // Un poco menos de espacio desperdiciado en los bordes para el celu
   },
   fila: {
     flexDirection: "row",
