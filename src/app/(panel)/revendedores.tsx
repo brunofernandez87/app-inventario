@@ -7,15 +7,18 @@ import {
   procesarVentaTotal,
 } from "@/service/stock_revendedor";
 import { StockRevendedor, Usuario } from "@/types/types";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Modal,
-  Platform, // <-- Importamos Platform para detectar PC o Celu
+  Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -23,24 +26,23 @@ import {
 } from "react-native";
 
 export default function StockRevendedorScreen() {
-  // Acá guardamos a TODOS (Incluso los Admin) para que el historial tenga sus nombres
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [stock, setStock] = useState<StockRevendedor[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados de Modales Originales
   const [modalDevolucionVisible, setModalDevolucionVisible] = useState(false);
   const [itemSeleccionado, setItemSeleccionado] =
     useState<StockRevendedor | null>(null);
   const [cantidadInput, setCantidadInput] = useState("");
 
-  // ESTADOS NUEVOS MODALES
   const [modalNuevoRevVisible, setModalNuevoRevVisible] = useState(false);
   const [nuevoRevNombre, setNuevoRevNombre] = useState("");
   const [nuevoRevRol, setNuevoRevRol] = useState("Revendedor");
   const [nuevoRevDescuento, setNuevoRevDescuento] = useState("");
   const [nuevoRevBonificacion, setNuevoRevBonificacion] = useState("");
+  const [nuevoRevPermiteDevolucion, setNuevoRevPermiteDevolucion] =
+    useState(false);
 
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
   const [asignarIdUsuario, setAsignarIdUsuario] = useState<number | null>(null);
@@ -54,6 +56,21 @@ export default function StockRevendedorScreen() {
   const [tipoSelector, setTipoSelector] = useState<"usuario" | "producto">(
     "usuario",
   );
+
+  // === ESTADOS PARA EL MODAL DE IMPRIMIR ===
+  const [modalImprimirVisible, setModalImprimirVisible] = useState(false);
+  const [opcionImprimir, setOpcionImprimir] = useState<"todos" | number>(
+    "todos",
+  );
+
+  // Fechas por defecto (Primer día del mes y Hoy)
+  const hoy = new Date();
+  const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const formatearFecha = (d: Date) =>
+    `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
+
+  const [fechaInicio, setFechaInicio] = useState(formatearFecha(primerDia));
+  const [fechaFin, setFechaFin] = useState(formatearFecha(hoy));
 
   const ID_EMPRESA_ACTUAL = 1;
 
@@ -73,7 +90,6 @@ export default function StockRevendedorScreen() {
   }, []);
 
   const handleVendido = (item: StockRevendedor) => {
-    // Aislamos la lógica de venta para poder llamarla desde cualquier lado
     const confirmarYVender = async () => {
       setLoading(true);
       const exito = await procesarVentaTotal(item, ID_EMPRESA_ACTUAL);
@@ -89,9 +105,7 @@ export default function StockRevendedorScreen() {
       const seguro = window.confirm(
         `¿Marcar las ${item.cantidad} unidades como vendidas?`,
       );
-      if (seguro) {
-        confirmarYVender();
-      }
+      if (seguro) confirmarYVender();
     } else {
       Alert.alert(
         "Confirmar",
@@ -149,6 +163,7 @@ export default function StockRevendedorScreen() {
       nuevoRevRol as any,
       valorFinal,
       ID_EMPRESA_ACTUAL,
+      nuevoRevPermiteDevolucion,
     );
 
     if (exito) {
@@ -157,6 +172,7 @@ export default function StockRevendedorScreen() {
       setNuevoRevDescuento("");
       setNuevoRevBonificacion("");
       setNuevoRevRol("Revendedor");
+      setNuevoRevPermiteDevolucion(false);
       await cargarDatos();
     } else {
       Alert.alert("Error", "No se pudo crear. Revisá la conexión.");
@@ -210,35 +226,184 @@ export default function StockRevendedorScreen() {
     );
   };
 
-  const renderStock = ({ item }: { item: StockRevendedor }) => (
-    <View style={styles.stockCard}>
-      <View style={styles.stockInfo}>
-        <Text style={styles.stockTitle}>
-          {(item as any).producto?.nombre_producto}
-        </Text>
-        <Text style={styles.stockSubtitle}>En poder: {item.cantidad}</Text>
-      </View>
-      <View style={styles.btnRow}>
-        <TouchableOpacity
-          style={styles.btnVendido}
-          onPress={() => handleVendido(item)}
-        >
-          <Text style={styles.txtVendido}>Vendido</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.btnDevolver}
-          onPress={() => handleDevolver(item)}
-        >
-          <Text style={styles.txtDevolver}>Devolver</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const usuariosFiltrados = usuarios.filter((u) => u.rol !== "Admin");
+
+  // === MAGIA: GENERACIÓN DE PDF MEJORADA ===
+  const generarPDF = async () => {
+    try {
+      setLoading(true);
+
+      // Parseamos las fechas ingresadas manualmente (DD/MM/YYYY)
+      const parseDate = (str: string) => {
+        const partes = str.split("/");
+        if (partes.length === 3) {
+          return new Date(
+            parseInt(partes[2]),
+            parseInt(partes[1]) - 1,
+            parseInt(partes[0]),
+          );
+        }
+        return new Date(2000, 0, 1); // Fecha muy vieja si escriben mal
+      };
+
+      const dateInicio = parseDate(fechaInicio);
+      const dateFin = parseDate(fechaFin);
+      dateFin.setHours(23, 59, 59, 999); // Para incluir todo el día de fin
+
+      let htmlContent = `
+        <html>
+          <head>
+            <style>
+              body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 40px; color: #334155; }
+              h1 { color: #0f172a; text-align: center; margin-bottom: 5px; }
+              .fecha { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 30px; }
+              .rango { text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 40px; color: #2563eb; background: #eff6ff; padding: 10px; border-radius: 8px;}
+              .usuario-box { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+              .usuario-box h2 { margin: 0; color: #1e293b; font-size: 20px; }
+              .usuario-box p { margin: 5px 0 0 0; font-size: 14px; color: #475569; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+              th, td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 13px; }
+              th { background-color: #ffffff; color: #64748b; font-weight: bold; text-transform: uppercase; font-size: 11px; }
+              .row-venta td { background-color: #f4fdf8; }
+              .total-box { background-color: #1e293b; color: white; text-align: right; padding: 12px 15px; border-radius: 8px; font-size: 16px; font-weight: bold; margin-bottom: 40px; }
+              .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; display: inline-block; }
+              .poder { background-color: #fef3c7; color: #b45309; }
+              .vendido { background-color: #d1fae5; color: #047857; }
+              .devuelto { background-color: #f1f5f9; color: #64748b; }
+              .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <h1>Reporte de Ventas y Movimientos</h1>
+            <div class="fecha">Generado el ${new Date().toLocaleDateString("es-AR")} a las ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div>
+            <div class="rango">📅 Período: ${fechaInicio} al ${fechaFin}</div>
+      `;
+
+      const usuariosAImprimir =
+        opcionImprimir === "todos"
+          ? usuariosFiltrados
+          : usuariosFiltrados.filter((u) => u.id_usuario === opcionImprimir);
+
+      usuariosAImprimir.forEach((usuario) => {
+        // Filtramos el stock por el usuario Y por las fechas seleccionadas
+        const stockFiltrado = stock.filter((s) => {
+          if (s.id_usuario !== usuario.id_usuario) return false;
+          if (!(s as any).created_at) return true; // Si por algún motivo no tiene fecha, lo metemos
+
+          const fechaMov = new Date((s as any).created_at);
+          return fechaMov >= dateInicio && fechaMov <= dateFin;
+        });
+
+        htmlContent += `
+          <div class="usuario-box">
+            <h2>👤 ${usuario.nombre_usuario}</h2>
+            <p><strong>Rol:</strong> ${usuario.rol}</p>
+          </div>
+        `;
+
+        if (stockFiltrado.length === 0) {
+          htmlContent += `<p style="color: #94a3b8; font-style: italic; margin-bottom: 40px;">Sin movimientos en este período.</p>`;
+        } else {
+          htmlContent += `
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 12%;">Fecha</th>
+                  <th style="width: 20%;">Revendedor</th>
+                  <th style="width: 28%;">Producto</th>
+                  <th style="width: 10%; text-align: center;">Estado</th>
+                  <th style="width: 10%; text-align: center;">Cant.</th>
+                  <th style="width: 10%; text-align: right;">Precio</th>
+                  <th style="width: 10%; text-align: right;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          let totalVentasRevendedor = 0;
+
+          stockFiltrado.forEach((s) => {
+            const nombreProd =
+              (s as any).producto?.nombre_producto || "Producto Desconocido";
+            const precioVenta = (s as any).producto?.precio_venta || 0;
+            const subtotal = s.cantidad * precioVenta;
+
+            const fechaStr = (s as any).created_at
+              ? new Date((s as any).created_at).toLocaleDateString("es-AR")
+              : "-";
+
+            let claseEstado = "devuelto";
+            let filaVenta = "";
+
+            if (s.estado === "En poder") claseEstado = "poder";
+            if (s.estado === "Vendido") {
+              claseEstado = "vendido";
+              filaVenta = "row-venta";
+              totalVentasRevendedor += subtotal; // Sumamos a la ganancia solo si está vendido
+            }
+
+            htmlContent += `
+              <tr class="${filaVenta}">
+                <td>${fechaStr}</td>
+                <td>${usuario.nombre_usuario}</td>
+                <td style="font-weight: bold; color: #0f172a;">${nombreProd}</td>
+                <td style="text-align: center;"><span class="badge ${claseEstado}">${s.estado}</span></td>
+                <td style="text-align: center;">${s.cantidad}</td>
+                <td style="text-align: right;">$${precioVenta.toLocaleString("es-AR")}</td>
+                <td style="text-align: right; font-weight: bold; color: ${s.estado === "Vendido" ? "#047857" : "#94a3b8"};">
+                  $${subtotal.toLocaleString("es-AR")}
+                </td>
+              </tr>
+            `;
+          });
+
+          htmlContent += `
+              </tbody>
+            </table>
+            <div class="total-box">
+              TOTAL VENTAS CONCRETADAS: $ ${totalVentasRevendedor.toLocaleString("es-AR")}
+            </div>
+          `;
+        }
+      });
+
+      htmlContent += `
+            <div class="footer">Documento generado automáticamente por el Sistema de Inventario.</div>
+          </body>
+        </html>
+      `;
+
+      if (Platform.OS === "web") {
+        await Print.printAsync({ html: htmlContent });
+      } else {
+        const { uri } = await Print.printToFileAsync({
+          html: htmlContent,
+          base64: false,
+        });
+        await Sharing.shareAsync(uri, {
+          UTI: ".pdf",
+          mimeType: "application/pdf",
+          dialogTitle: "Compartir Reporte",
+        });
+      }
+
+      setModalImprimirVisible(false);
+    } catch (error) {
+      Alert.alert("Error", "No se pudo generar el documento PDF.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderUsuario = ({ item: usuario }: { item: Usuario }) => {
     const descuento = (usuario as any).descuento || 0;
     const bonificacion =
       usuario.rol === "Camioneta" ? 0 : usuario.bonificacion || 0;
+    const permiteDevolver =
+      (usuario as any).permite_devolucion === true ||
+      usuario.rol === "Camioneta";
+
     const stockAsignado = stock.filter(
       (s) => s.id_usuario === usuario.id_usuario && s.estado === "En poder",
     );
@@ -249,6 +414,33 @@ export default function StockRevendedorScreen() {
           ? `Bonificación: ${bonificacion}%`
           : `Sin beneficios`;
 
+    const renderStockEnLinea = ({ item }: { item: StockRevendedor }) => (
+      <View style={styles.stockCard}>
+        <View style={styles.stockInfo}>
+          <Text style={styles.stockTitle}>
+            {(item as any).producto?.nombre_producto}
+          </Text>
+          <Text style={styles.stockSubtitle}>En poder: {item.cantidad}</Text>
+        </View>
+        <View style={styles.btnRow}>
+          <TouchableOpacity
+            style={styles.btnVendido}
+            onPress={() => handleVendido(item)}
+          >
+            <Text style={styles.txtVendido}>Vendido</Text>
+          </TouchableOpacity>
+          {permiteDevolver && (
+            <TouchableOpacity
+              style={styles.btnDevolver}
+              onPress={() => handleDevolver(item)}
+            >
+              <Text style={styles.txtDevolver}>Devolver</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+
     return (
       <View style={styles.userCard}>
         <View style={styles.userHeader}>
@@ -256,6 +448,9 @@ export default function StockRevendedorScreen() {
           <View style={styles.roleContainer}>
             <Text style={styles.roleBadge}>{usuario.rol}</Text>
             <Text style={styles.discountTxt}>{textoBeneficio}</Text>
+            {permiteDevolver && usuario.rol !== "Camioneta" && (
+              <Text style={styles.badgePermiso}> Habilitado a devolver</Text>
+            )}
           </View>
         </View>
 
@@ -265,7 +460,7 @@ export default function StockRevendedorScreen() {
           <FlatList
             data={stockAsignado}
             keyExtractor={(s) => s.id_registro.toString()}
-            renderItem={renderStock}
+            renderItem={renderStockEnLinea}
             scrollEnabled={false}
           />
         )}
@@ -275,8 +470,6 @@ export default function StockRevendedorScreen() {
 
   const renderHistorial = () => {
     const isWeb = Platform.OS === "web";
-
-    // Extraemos la tabla a una variable para no repetir código
     const TablaHistorial = (
       <View style={{ minWidth: isWeb ? "100%" : 600, paddingBottom: 10 }}>
         <View style={styles.tableHeaderRow}>
@@ -404,8 +597,6 @@ export default function StockRevendedorScreen() {
     return (
       <View style={styles.historyCard}>
         <Text style={styles.historyMainTitle}>Historial de Asignaciones</Text>
-
-        {/* Lógica inteligente: Si es Web, dibuja la tabla al 100%. Si es Celu, le pone el Scroll horizontal */}
         {isWeb ? (
           TablaHistorial
         ) : (
@@ -417,9 +608,6 @@ export default function StockRevendedorScreen() {
     );
   };
 
-  // OCULTAMOS A LOS ADMIN DE LAS TARJETITAS PRINCIPALES Y DEL MODAL DE ASIGNAR
-  const usuariosFiltrados = usuarios.filter((u) => u.rol !== "Admin");
-
   return (
     <View style={styles.container}>
       <View style={styles.headerTop}>
@@ -430,6 +618,15 @@ export default function StockRevendedorScreen() {
           </Text>
         </View>
         <View style={styles.headerActionBtns}>
+          <TouchableOpacity
+            style={styles.btnHeaderPrint}
+            onPress={() => {
+              setOpcionImprimir("todos");
+              setModalImprimirVisible(true);
+            }}
+          >
+            <Text style={styles.txtHeaderPrint}>🖨️ Imprimir PDF</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.btnHeaderPrimary}
             onPress={() => setModalAsignarVisible(true)}
@@ -461,7 +658,154 @@ export default function StockRevendedorScreen() {
         />
       )}
 
-      {/* MODAL 1: DEVOLUCIÓN */}
+      {/* === MODAL DE IMPRESIÓN (AHORA CON FECHAS) === */}
+      <Modal
+        visible={modalImprimirVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Imprimir Reporte</Text>
+
+            <Text style={styles.label}>¿Qué querés imprimir?</Text>
+            <View style={styles.roleSelectionGroup}>
+              <TouchableOpacity
+                style={
+                  opcionImprimir === "todos"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setOpcionImprimir("todos")}
+              >
+                <Text
+                  style={
+                    opcionImprimir === "todos"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Todos
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={
+                  opcionImprimir !== "todos"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() =>
+                  setOpcionImprimir(
+                    usuariosFiltrados.length > 0
+                      ? usuariosFiltrados[0].id_usuario
+                      : -1,
+                  )
+                }
+              >
+                <Text
+                  style={
+                    opcionImprimir !== "todos"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Individual
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {opcionImprimir !== "todos" && (
+              <>
+                <Text style={styles.label}>Seleccionar Revendedor:</Text>
+                <ScrollView
+                  style={{
+                    maxHeight: 120,
+                    borderWidth: 1,
+                    borderColor: "#cbd5e1",
+                    borderRadius: 8,
+                    marginTop: 4,
+                    marginBottom: 10,
+                  }}
+                >
+                  {usuariosFiltrados.map((u) => (
+                    <TouchableOpacity
+                      key={u.id_usuario}
+                      style={[
+                        styles.selectorItem,
+                        {
+                          backgroundColor:
+                            opcionImprimir === u.id_usuario
+                              ? "#eff6ff"
+                              : "#fff",
+                          paddingHorizontal: 12,
+                        },
+                      ]}
+                      onPress={() => setOpcionImprimir(u.id_usuario)}
+                    >
+                      <Text
+                        style={[
+                          styles.selectorItemTxt,
+                          {
+                            fontWeight:
+                              opcionImprimir === u.id_usuario
+                                ? "bold"
+                                : "normal",
+                            color:
+                              opcionImprimir === u.id_usuario
+                                ? "#1e40af"
+                                : "#334155",
+                          },
+                        ]}
+                      >
+                        👤 {u.nombre_usuario}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Fecha Inicio</Text>
+                <TextInput
+                  style={styles.modalInputText}
+                  placeholder="DD/MM/YYYY"
+                  value={fechaInicio}
+                  onChangeText={setFechaInicio}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Fecha Fin</Text>
+                <TextInput
+                  style={styles.modalInputText}
+                  placeholder="DD/MM/YYYY"
+                  value={fechaFin}
+                  onChangeText={setFechaFin}
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalImprimirVisible(false)}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: "#16a34a" }]}
+                onPress={generarPDF}
+              >
+                <Text style={[styles.modalTxtConfirm, { color: "#fff" }]}>
+                  Generar PDF
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         visible={modalDevolucionVisible}
         transparent={true}
@@ -495,7 +839,6 @@ export default function StockRevendedorScreen() {
         </View>
       </Modal>
 
-      {/* MODAL 2: NUEVO REVENDEDOR */}
       <Modal
         visible={modalNuevoRevVisible}
         transparent={true}
@@ -572,36 +915,54 @@ export default function StockRevendedorScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+
             {nuevoRevRol !== "Camioneta" && (
-              <View style={{ flexDirection: "row", gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Descuento (%)</Text>
-                  <TextInput
-                    style={styles.modalInputText}
-                    keyboardType="numeric"
-                    placeholder="Ej: 10"
-                    value={nuevoRevDescuento}
-                    onChangeText={(texto) => {
-                      setNuevoRevDescuento(texto);
-                      if (texto.length > 0) setNuevoRevBonificacion("");
-                    }}
+              <>
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Descuento (%)</Text>
+                    <TextInput
+                      style={styles.modalInputText}
+                      keyboardType="numeric"
+                      placeholder="Ej: 10"
+                      value={nuevoRevDescuento}
+                      onChangeText={(texto) => {
+                        setNuevoRevDescuento(texto);
+                        if (texto.length > 0) setNuevoRevBonificacion("");
+                      }}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Bonificación (%)</Text>
+                    <TextInput
+                      style={styles.modalInputText}
+                      keyboardType="numeric"
+                      placeholder="Ej: 15"
+                      value={nuevoRevBonificacion}
+                      onChangeText={(texto) => {
+                        setNuevoRevBonificacion(texto);
+                        if (texto.length > 0) setNuevoRevDescuento("");
+                      }}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.switchContainer}>
+                  <Text style={styles.labelSwitch}>
+                    ¿Permitir devoluciones de mercadería?
+                  </Text>
+                  <Switch
+                    value={nuevoRevPermiteDevolucion}
+                    onValueChange={setNuevoRevPermiteDevolucion}
+                    trackColor={{ false: "#cbd5e1", true: "#93c5fd" }}
+                    thumbColor={
+                      nuevoRevPermiteDevolucion ? "#2563eb" : "#f1f5f9"
+                    }
                   />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Bonificación (%)</Text>
-                  <TextInput
-                    style={styles.modalInputText}
-                    keyboardType="numeric"
-                    placeholder="Ej: 15"
-                    value={nuevoRevBonificacion}
-                    onChangeText={(texto) => {
-                      setNuevoRevBonificacion(texto);
-                      if (texto.length > 0) setNuevoRevDescuento("");
-                    }}
-                  />
-                </View>
-              </View>
+              </>
             )}
+
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.modalBtnCancel}
@@ -620,7 +981,6 @@ export default function StockRevendedorScreen() {
         </View>
       </Modal>
 
-      {/* MODAL 3: ASIGNAR STOCK */}
       <Modal
         visible={modalAsignarVisible}
         transparent={true}
@@ -714,7 +1074,7 @@ export default function StockRevendedorScreen() {
                       : styles.stateTxtInactive
                   }
                 >
-                  ↩ Devuelto
+                  Devuelto
                 </Text>
               </TouchableOpacity>
             </View>
@@ -736,7 +1096,6 @@ export default function StockRevendedorScreen() {
         </View>
       </Modal>
 
-      {/* MODAL 4: EL SELECTOR DESPLEGABLE */}
       <Modal
         visible={modalSelectorVisible}
         transparent={true}
@@ -748,7 +1107,6 @@ export default function StockRevendedorScreen() {
               Seleccionar{" "}
               {tipoSelector === "usuario" ? "Revendedor" : "Producto"}
             </Text>
-
             <FlatList
               data={tipoSelector === "usuario" ? usuariosFiltrados : productos}
               keyExtractor={(item) =>
@@ -775,7 +1133,6 @@ export default function StockRevendedorScreen() {
                 </TouchableOpacity>
               )}
             />
-
             <TouchableOpacity
               style={[styles.modalBtnCancel, { marginTop: 16 }]}
               onPress={() => setModalSelectorVisible(false)}
@@ -791,7 +1148,6 @@ export default function StockRevendedorScreen() {
   );
 }
 
-// === ESTILOS (Los mismos) ===
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8fafc", padding: 16 },
   headerTop: {
@@ -804,12 +1160,20 @@ const styles = StyleSheet.create({
   },
   mainTitle: { fontSize: 28, fontWeight: "bold", color: "#0f172a" },
   mainSubtitle: { fontSize: 14, color: "#64748b", marginTop: 2 },
-  headerActionBtns: { flexDirection: "row", gap: 10 },
+  headerActionBtns: {
+    flexDirection: "row",
+    gap: 10,
+    flexWrap: Platform.OS === "web" ? "nowrap" : "wrap",
+    width: Platform.OS === "web" ? "auto" : "100%",
+  },
   btnHeaderPrimary: {
     backgroundColor: "#2563eb",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
+    flex: Platform.OS === "web" ? undefined : 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   txtHeaderPrimary: { color: "#fff", fontWeight: "bold" },
   btnHeaderSecondary: {
@@ -819,8 +1183,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#cbd5e1",
+    flex: Platform.OS === "web" ? undefined : 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   txtHeaderSecondary: { color: "#334155", fontWeight: "bold" },
+  btnHeaderPrint: {
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    flex: Platform.OS === "web" ? undefined : 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  txtHeaderPrint: { color: "#475569", fontWeight: "bold" },
   userCard: {
     backgroundColor: "#ffffff",
     padding: 16,
@@ -852,6 +1231,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   discountTxt: { color: "#475569", fontSize: 14, fontWeight: "500" },
+  badgePermiso: { fontSize: 12, color: "#059669", fontWeight: "bold" },
   emptyTxt: {
     color: "#94a3b8",
     fontStyle: "italic",
@@ -1073,4 +1453,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#93c5fd",
   },
   modalTxtConfirm: { color: "#1e3a8a", fontWeight: "bold" },
+  switchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+  },
+  labelSwitch: { fontSize: 14, fontWeight: "600", color: "#475569" },
 });
