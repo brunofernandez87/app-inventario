@@ -1,24 +1,22 @@
-import { MovimientoStock } from "@/types/types";
 import { supabase } from "../database/supabase";
 
-export const crearMovimientoStock = async (
-  data_movimiento: Omit<MovimientoStock, "id_movimiento" | "fecha_movimiento">,
-): Promise<boolean> => {
+export const obtenerHistorialMovimientos = async (id_empresa: number) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("movimiento_stock")
-      .insert(data_movimiento);
+      .select(
+        `
+        *,
+        producto:id_producto ( nombre_producto, codigo_barras )
+      `,
+      )
+      .eq("id_empresa", id_empresa)
+      .order("fecha_movimiento", { ascending: false });
 
-    if (error) {
-      console.error(
-        "Error en la base de datos al crear movimiento",
-        error.message,
-      );
-      return false;
-    }
-    return true;
+    if (error) throw error;
+    return data || [];
   } catch (error) {
-    console.error("Error de conexion/ejecucion: ", error);
-    return false;
+    console.error("Error al obtener el historial de movimientos:", error);
+    return [];
   }
 };
