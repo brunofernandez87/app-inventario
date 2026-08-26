@@ -118,7 +118,10 @@ export default function ListaProductos() {
     setOpcionesVisible(true);
   };
   const eliminacionProducto = async (producto) => {
-    const respuesta = await eliminarProducto(producto, empresa?.id_empresa);
+    const respuesta = await eliminarProducto(
+      producto.id_producto,
+      empresa?.id_empresa,
+    );
     if (respuesta == true) {
       await fetchProducts();
       alert("producto eliminado"); //cambiar por una notificacion
