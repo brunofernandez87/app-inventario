@@ -8,7 +8,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  useWindowDimensions
 } from "react-native";
 import { useAuth } from "../context/authContext";
 
@@ -22,6 +23,10 @@ export default function PantallaLogin() {
   const { login, cargando } = useAuth();
   const router = useRouter();
 
+  // Obtenemos el ancho y calculamos si es celular 
+  const { width } = useWindowDimensions();
+  const celular = width < 768;
+
   const manejarLogin = async () => {
     if (!email || !password) {
       Alert.alert("Atención", "Por favor completá todos los campos.");
@@ -34,7 +39,7 @@ export default function PantallaLogin() {
       // Guardamos en el dispositivo si el usuario eligió ser recordado o no
       await AsyncStorage.setItem("recordarme", recordarme ? "true" : "false");
       // Te manda a la pantalla de productos adentro del menú lateral
-      router.replace({ pathname: "/(panel)/productos" } as any);;;
+      router.replace({ pathname: "/(panel)/productos" } as any);
     } else {
       Alert.alert("Error", "Correo o contraseña incorrectos. Revisá los datos.");
     }
@@ -42,7 +47,9 @@ export default function PantallaLogin() {
 
   return (
     <View style={styles.contenedor}>
-      <View style={styles.tarjeta}>
+      {/* Combinamos los estilos dependiendo del dispositivo */}
+      <View style={[styles.tarjeta, celular ? styles.tarjetaCelular : styles.tarjetaPC]}>
+
         <Text style={styles.titulo}>Bienvenido</Text>
         <Text style={styles.subtitulo}>Ingresá los datos de tu cuenta</Text>
 
@@ -92,8 +99,35 @@ export default function PantallaLogin() {
 }
 
 const styles = StyleSheet.create({
-  contenedor: { flex: 1, justifyContent: "center", padding: 20, backgroundColor: "#F4F6F8" },
-  tarjeta: { backgroundColor: "white", padding: 25, borderRadius: 15, elevation: 5 },
+  contenedor: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center", //Agregamos esto para centrar la tarjeta en PC
+    padding: 20,
+    backgroundColor: "#F4F6F8"
+  },
+
+  // Estilo general de la tarjeta
+  tarjeta: {
+    backgroundColor: "white",
+    padding: 25,
+    borderRadius: 15,
+    elevation: 5,
+    // Agregamos sombras para que también se vea linda en la Web/PC
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+
+  // 👇 4. Definimos los anchos condicionales 👇
+  tarjetaCelular: {
+    width: "100%",
+  },
+  tarjetaPC: {
+    width: 450, // Límite máximo para que no se estire de más en monitores grandes
+  },
+
   titulo: { fontSize: 28, fontWeight: "bold", color: "#333", marginBottom: 5, textAlign: "center" },
   subtitulo: { fontSize: 14, color: "#666", marginBottom: 25, textAlign: "center" },
   input: { backgroundColor: "#F9FAFB", borderWidth: 1, borderColor: "#E5E7EB", padding: 15, borderRadius: 10, marginBottom: 15, fontSize: 16 },
