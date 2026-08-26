@@ -16,6 +16,7 @@ export interface Producto {
   stock_minimo?: number;
   alerta_proyeccion?: boolean;
   alerta_stock?: boolean;
+  ventas_promedio_mensual?: number;
   fecha_creacion?: string;
 }
 
