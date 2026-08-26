@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import { BarChart, LineChart } from "react-native-chart-kit";
 
-// === PARCHE DEFINITIVO NIVEL DIOS PARA SILENCIAR REACT-NATIVE-CHART-KIT EN WEB ===
 if (Platform.OS === "web") {
   const originalConsoleError = console.error;
   console.error = (...args) => {
@@ -63,7 +62,6 @@ export default function ReportesScreen() {
   const [tabActiva, setTabActiva] = useState("Resumen Mensual");
   const [loading, setLoading] = useState(true);
 
-  // === ESTADOS REALES ===
   const [datosMensuales, setDatosMensuales] = useState({
     transacciones: 0,
     unidadesVendidas: 0,
@@ -90,7 +88,6 @@ export default function ReportesScreen() {
     useCallback(() => {
       const cargarReportes = async () => {
         setLoading(true);
-        // Traemos todo en paralelo para que sea más rápido
         const [resumen, historial, extraData] = await Promise.all([
           obtenerResumenMensual(ID_EMPRESA_ACTUAL),
           obtenerHistorialGraficos(ID_EMPRESA_ACTUAL),
