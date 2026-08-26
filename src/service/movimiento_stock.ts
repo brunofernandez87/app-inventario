@@ -11,7 +11,7 @@ export const obtenerHistorialMovimientos = async (id_empresa: number) => {
       `,
       )
       .eq("id_empresa", id_empresa)
-      .order("fecha_movimiento", { ascending: false }); // Ordenamos del más nuevo al más viejo
+      .order("fecha_movimiento", { ascending: false });
 
     if (error) throw error;
     return data || [];
