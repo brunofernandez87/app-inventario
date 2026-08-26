@@ -114,7 +114,7 @@ export default function EditarProducto({ onClose, producto }) {
     const respuesta = await editarProducto(nuevoProducto, id_empresa);
     if (respuesta) {
       await fetchProducts();
-      alert("El producto se creo correctamente");
+      alert("El producto se edito correctamente");
       onClose();
     }
   };

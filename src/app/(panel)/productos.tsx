@@ -1,6 +1,10 @@
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
-import { obtenerAlertaProyeccion, obtenerStockBajo } from "@/service/producto";
+import {
+  eliminarProducto,
+  obtenerAlertaProyeccion,
+  obtenerStockBajo,
+} from "@/service/producto";
 import { BlurView } from "expo-blur";
 import { Link, Stack } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -16,6 +20,7 @@ import {
 } from "react-native";
 import CreacionProducto from "../producto/crearProducto";
 import EditarProducto from "../producto/editarProducto";
+import VentanaConfirmacion from "../ventanaConfirmacion";
 export default function ListaProductos() {
   const { width } = useWindowDimensions();
   const celular = width < 768;
@@ -24,6 +29,7 @@ export default function ListaProductos() {
   const [modalVisible, setModalVisible] = useState(false);
   const [opcionesVisible, setOpcionesVisible] = useState(false);
   const { listaProducto, cargando, fetchProducts } = useListaProducto();
+  const [modalElminar, setModalEliminar] = useState(false);
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
     [],
@@ -110,6 +116,14 @@ export default function ListaProductos() {
   const abrirOpciones = (producto_seleccionado) => {
     setProductoAEditar(producto_seleccionado);
     setOpcionesVisible(true);
+  };
+  const eliminacionProducto = async (producto) => {
+    const respuesta = await eliminarProducto(producto, empresa?.id_empresa);
+    if (respuesta == true) {
+      await fetchProducts();
+      alert("producto eliminado"); //cambiar por una notificacion
+      setModalEliminar(false);
+    }
   };
   useEffect(() => {
     if (!filterStockBajo && !filterAlerta) {
@@ -348,7 +362,7 @@ export default function ListaProductos() {
               style={[styles.botonOpcion, styles.botonOpcionEliminar]}
               onPress={() => {
                 setOpcionesVisible(false);
-                alert("Acá ejecutamos la función de eliminar!"); // Reemplazar luego
+                setModalEliminar(true);
               }}
             >
               <Text style={styles.textoBotonEliminar}>Eliminar producto</Text>
@@ -361,6 +375,26 @@ export default function ListaProductos() {
             >
               <Text style={styles.textoCancelarOpciones}>Cancelar</Text>
             </Pressable>
+          </View>
+        </BlurView>
+      </Modal>
+      <Modal
+        animationType="fade"
+        transparent={true} // Permite ver el fondo oscuro
+        visible={modalElminar}
+        onRequestClose={() => setModalEliminar(false)} // Permite cerrar con el botón "Atrás" de Android
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
+          <View
+            style={[styles.modalVentana, celular && styles.modalVentanaCelular]}
+          >
+            {productoAEditar && (
+              <VentanaConfirmacion
+                onClose={() => setModalEliminar(false)}
+                texto={"que desea eliminar este producto"}
+                onConfirm={() => eliminacionProducto(productoAEditar)}
+              />
+            )}
           </View>
         </BlurView>
       </Modal>
