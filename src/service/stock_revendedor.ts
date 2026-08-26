@@ -1,24 +1,28 @@
 import { StockRevendedor, Usuario } from "@/types/types";
 import { supabase } from "../database/supabase";
 import { crearMovimientoStock } from "./movimiento_stock";
-import { editarProducto, obtenerProducto } from "./producto";
 
 export const obtenerRevendedoresYStock = async (id_empresa: number) => {
   try {
     const { data: usuarios, error: errUsuarios } = await supabase
       .from("usuario")
       .select("*")
-      .eq("id_empresa", id_empresa);
+      .eq("id_empresa", id_empresa)
+      .order("nombre_usuario", { ascending: true });
 
     if (errUsuarios) throw errUsuarios;
 
-    const { data: stock, error: errStock } = await supabase.from(
-      "stock_revendedor",
-    ).select(`
+    // EL ORDENAMIENTO: id_registro descendente para que lo más nuevo quede arriba
+    const { data: stock, error: errStock } = await supabase
+      .from("stock_revendedor")
+      .select(
+        `
         *,
         id_producto,
         producto:id_producto ( id_producto, nombre_producto, precio_venta, codigo_barras )
-      `);
+      `,
+      )
+      .order("id_registro", { ascending: false });
 
     if (errStock) throw errStock;
 
@@ -42,13 +46,7 @@ export const procesarDevolucion = async (
     const idProducto =
       registro.id_producto || (registro as any).producto?.id_producto;
 
-    if (!idRegistro || !idProducto) {
-      console.error("Faltan IDs críticos para devolver", {
-        idRegistro,
-        idProducto,
-      });
-      return false;
-    }
+    if (!idRegistro || !idProducto) return false;
 
     const cantidad_restante = registro.cantidad - cantidad_devuelta;
 
@@ -62,7 +60,6 @@ export const procesarDevolucion = async (
         .from("stock_revendedor")
         .update({ cantidad: cantidad_restante })
         .eq("id_registro", idRegistro);
-
       await supabase.from("stock_revendedor").insert({
         id_usuario: registro.id_usuario,
         id_producto: idProducto,
@@ -71,16 +68,17 @@ export const procesarDevolucion = async (
       });
     }
 
-    const productoActual = await obtenerProducto(idProducto, id_empresa);
-
-    if (productoActual && productoActual.stock_unidades !== undefined) {
-      await editarProducto(
-        {
-          id_producto: idProducto,
-          stock_unidades: productoActual.stock_unidades + cantidad_devuelta,
-        },
-        id_empresa,
-      );
+    // REINTEGRO DE STOCK AL INVENTARIO
+    const { data: prod } = await supabase
+      .from("producto")
+      .select("stock_unidades")
+      .eq("id_producto", idProducto)
+      .single();
+    if (prod) {
+      await supabase
+        .from("producto")
+        .update({ stock_unidades: prod.stock_unidades + cantidad_devuelta })
+        .eq("id_producto", idProducto);
     }
 
     await crearMovimientoStock({
@@ -98,8 +96,10 @@ export const procesarDevolucion = async (
   }
 };
 
-export const procesarVentaTotal = async (
+// === VENTA PARCIAL (NUEVO) ===
+export const procesarVenta = async (
   registro: StockRevendedor,
+  cantidad_vendida: number,
   id_empresa: number,
 ): Promise<boolean> => {
   try {
@@ -107,24 +107,33 @@ export const procesarVentaTotal = async (
     const idProducto =
       registro.id_producto || (registro as any).producto?.id_producto;
 
-    if (!idRegistro || !idProducto) {
-      console.error("Faltan IDs críticos para la venta", {
-        idRegistro,
-        idProducto,
-      });
-      return false;
-    }
+    if (!idRegistro || !idProducto) return false;
 
-    await supabase
-      .from("stock_revendedor")
-      .update({ estado: "Vendido" })
-      .eq("id_registro", idRegistro);
+    const cantidad_restante = registro.cantidad - cantidad_vendida;
+
+    if (cantidad_restante <= 0) {
+      await supabase
+        .from("stock_revendedor")
+        .update({ estado: "Vendido" })
+        .eq("id_registro", idRegistro);
+    } else {
+      await supabase
+        .from("stock_revendedor")
+        .update({ cantidad: cantidad_restante })
+        .eq("id_registro", idRegistro);
+      await supabase.from("stock_revendedor").insert({
+        id_usuario: registro.id_usuario,
+        id_producto: idProducto,
+        cantidad: cantidad_vendida,
+        estado: "Vendido",
+      });
+    }
 
     await crearMovimientoStock({
       id_empresa: id_empresa,
       id_producto: idProducto,
       tipo_movimiento: "SALIDA",
-      cantidad: registro.cantidad,
+      cantidad: cantidad_vendida,
       motivo: "Venta concretada por revendedor/camioneta",
     });
 
@@ -150,11 +159,89 @@ export const crearNuevoRevendedor = async (
       bonificacion: bonificacion > 0 ? bonificacion : null,
       permite_devolucion: permite_devolucion,
     });
-
     if (error) throw error;
     return true;
   } catch (error) {
     console.error("Error al crear el nuevo revendedor: ", error);
+    return false;
+  }
+};
+
+// === EDITAR Y ELIMINAR REVENDEDOR (NUEVO) ===
+export const editarRevendedor = async (
+  id_usuario: number,
+  nombre_usuario: string,
+  rol: string,
+  bonificacion: number,
+  permite_devolucion: boolean,
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from("usuario")
+      .update({
+        nombre_usuario,
+        rol,
+        bonificacion: bonificacion > 0 ? bonificacion : null,
+        permite_devolucion,
+      })
+      .eq("id_usuario", id_usuario);
+    return !error;
+  } catch (error) {
+    return false;
+  }
+};
+
+export const eliminarRevendedor = async (
+  id_usuario: number,
+  id_empresa: number,
+): Promise<boolean> => {
+  try {
+    const { data: stockEnPoder, error: errStock } = await supabase
+      .from("stock_revendedor")
+      .select("id_producto, cantidad")
+      .eq("id_usuario", id_usuario)
+      .eq("estado", "En poder");
+
+    if (errStock) throw errStock;
+
+    if (stockEnPoder && stockEnPoder.length > 0) {
+      for (const item of stockEnPoder) {
+        const { data: prod } = await supabase
+          .from("producto")
+          .select("stock_unidades")
+          .eq("id_producto", item.id_producto)
+          .single();
+
+        if (prod) {
+          await supabase
+            .from("producto")
+            .update({ stock_unidades: prod.stock_unidades + item.cantidad })
+            .eq("id_producto", item.id_producto);
+          await crearMovimientoStock({
+            id_empresa: id_empresa,
+            id_producto: item.id_producto,
+            tipo_movimiento: "ENTRADA",
+            cantidad: item.cantidad,
+            motivo: "Devolución automática por eliminación de cuenta",
+          });
+        }
+      }
+    }
+
+    await supabase
+      .from("stock_revendedor")
+      .delete()
+      .eq("id_usuario", id_usuario);
+    const { error: errDelete } = await supabase
+      .from("usuario")
+      .delete()
+      .eq("id_usuario", id_usuario);
+
+    if (errDelete) throw errDelete;
+
+    return true;
+  } catch (error) {
+    console.error("Error al eliminar revendedor: ", error);
     return false;
   }
 };
@@ -165,7 +252,6 @@ export const obtenerProductosParaAsignar = async (id_empresa: number) => {
       .from("producto")
       .select("id_producto, nombre_producto, codigo_barras, stock_unidades")
       .eq("id_empresa", id_empresa);
-
     if (error) throw error;
     return data || [];
   } catch (error) {
@@ -178,45 +264,43 @@ export const asignarStockARevendedor = async (
   id_usuario: number,
   id_producto: number,
   cantidad: number,
-  estado: "En poder" | "Vendido" | "Devuelto",
+  estado: "En poder" | "Vendido",
   id_empresa: number,
-): Promise<boolean> => {
+): Promise<{ exito: boolean; error?: string }> => {
   try {
+    const { data: prod } = await supabase
+      .from("producto")
+      .select("stock_unidades")
+      .eq("id_producto", id_producto)
+      .single();
+    if (!prod) return { exito: false, error: "Producto no encontrado." };
+    if (prod.stock_unidades < cantidad)
+      return {
+        exito: false,
+        error: `Stock insuficiente. Solo te quedan ${prod.stock_unidades} unidades.`,
+      };
+
     const { error: errInsert } = await supabase
       .from("stock_revendedor")
-      .insert({
-        id_usuario,
-        id_producto,
-        cantidad,
-        estado,
-      });
-
+      .insert({ id_usuario, id_producto, cantidad, estado });
     if (errInsert) throw errInsert;
 
-    if (estado === "En poder" || estado === "Vendido") {
-      const productoActual = await obtenerProducto(id_producto, id_empresa);
-      if (productoActual && productoActual.stock_unidades !== undefined) {
-        await editarProducto(
-          {
-            id_producto: id_producto,
-            stock_unidades: productoActual.stock_unidades - cantidad,
-          },
-          id_empresa,
-        );
+    await supabase
+      .from("producto")
+      .update({ stock_unidades: prod.stock_unidades - cantidad })
+      .eq("id_producto", id_producto);
 
-        await crearMovimientoStock({
-          id_empresa,
-          id_producto,
-          tipo_movimiento: "SALIDA",
-          cantidad,
-          motivo: `Asignación a revendedor (${estado})`,
-        });
-      }
-    }
+    await crearMovimientoStock({
+      id_empresa,
+      id_producto,
+      tipo_movimiento: "SALIDA",
+      cantidad,
+      motivo: `Asignación a revendedor (${estado})`,
+    });
 
-    return true;
+    return { exito: true };
   } catch (error) {
     console.error("Error al asignar stock: ", error);
-    return false;
+    return { exito: false, error: "Error de conexión." };
   }
 };

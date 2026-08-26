@@ -1,6 +1,6 @@
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
-import { crearProducto } from "@/service/producto";
+import { editarProducto } from "@/service/producto";
 import { Picker } from "@react-native-picker/picker";
 import { useState } from "react";
 import {
@@ -12,20 +12,38 @@ import {
   View,
 } from "react-native";
 
-export default function CreacionProducto({ onClose }) {
-  const [codigo_alfanumerico, setCodigo_alfanumerico] = useState("");
-  const [codigo_barras, setCodigo_barras] = useState("");
-  const [nombre, setNombre] = useState("");
-  const [marca, setMarca] = useState("");
-  const [ubicacion, setUbicacion] = useState("");
-  const [costo_compra, setCosto_compra] = useState("");
-  const [precio_venta, setPrecio_venta] = useState("");
-  const [medida, setMedida] = useState("unidad");
-  const [stock_unidades, setStock_unidades] = useState("");
-  const [stock_paquetes, setStock_paquetes] = useState("");
-  const [unidades_paquete, setUnidades_paquete] = useState("");
-  const [bonificacion_paquete, setBonificacion_paquete] = useState("");
-  const [stock_minimo, setStock_minimo] = useState("");
+export default function EditarProducto({ onClose, producto }) {
+  const [codigo_alfanumerico, setCodigo_alfanumerico] = useState(
+    producto.codigo_alfanumerico,
+  );
+  const [codigo_barras, setCodigo_barras] = useState(producto.codigo_barras);
+  const [nombre, setNombre] = useState(producto.nombre_producto);
+  const [marca, setMarca] = useState(producto.marca);
+  const [ubicacion, setUbicacion] = useState(producto.ubicacion);
+  const [costo_compra, setCosto_compra] = useState(
+    producto.costo_compra?.toString() || "",
+  );
+  const [precio_venta, setPrecio_venta] = useState(
+    producto.precio_venta?.toString() || "",
+  );
+  const [medida, setMedida] = useState(
+    producto.id_medida === 2 ? "kilogramo" : "unidad",
+  );
+  const [stock_unidades, setStock_unidades] = useState(
+    producto.stock_unidades?.toString() || "",
+  );
+  const [stock_paquetes, setStock_paquetes] = useState(
+    producto.stock_paquetes?.toString() || "",
+  );
+  const [unidades_paquete, setUnidades_paquete] = useState(
+    producto.unidades_por_paquete?.toString() || "",
+  );
+  const [bonificacion_paquete, setBonificacion_paquete] = useState(
+    producto.bonificacion_paquete?.toString() || "",
+  );
+  const [stock_minimo, setStock_minimo] = useState(
+    producto.stock_minimo?.toString() || "",
+  );
   const { empresa } = useEmpresa();
   const listaMedida = ["unidad", "kilogramo"];
   const { fetchProducts } = useListaProducto();
@@ -77,6 +95,7 @@ export default function CreacionProducto({ onClose }) {
       id_medida = 2;
     }
     const nuevoProducto = {
+      id_producto: producto.id_producto,
       id_empresa: id_empresa,
       codigo_alfanumerico: codigo_alfanumerico,
       codigo_barras: codigo_barras,
@@ -92,7 +111,7 @@ export default function CreacionProducto({ onClose }) {
       bonificacion_paquete: Number(bonificacion_paquete),
       stock_minimo: Number(stock_minimo),
     };
-    const respuesta = await crearProducto(nuevoProducto);
+    const respuesta = await editarProducto(nuevoProducto, id_empresa);
     if (respuesta) {
       await fetchProducts();
       alert("El producto se creo correctamente");
@@ -102,7 +121,7 @@ export default function CreacionProducto({ onClose }) {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.headerModal}>
-        <Text style={styles.titulo}> Nuevo Producto</Text>
+        <Text style={styles.titulo}> Actualizar Producto</Text>
         <Pressable onPress={onClose}>
           <Text style={{ fontSize: 20 }}>X</Text>
         </Pressable>
@@ -248,7 +267,7 @@ export default function CreacionProducto({ onClose }) {
               : styles.botonActivo,
           ]}
         >
-          <Text style={styles.textoBoton}>Crear Producto</Text>
+          <Text style={styles.textoBoton}>Guardar Cambios</Text>
         </Pressable>
       </View>
     </ScrollView>

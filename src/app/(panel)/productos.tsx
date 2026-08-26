@@ -15,10 +15,14 @@ import {
   useWindowDimensions,
 } from "react-native";
 import CreacionProducto from "../producto/crearProducto";
+import EditarProducto from "../producto/editarProducto";
 export default function ListaProductos() {
   const { width } = useWindowDimensions();
   const celular = width < 768;
+  const [modalEdicionVisible, setModalEdicionVisible] = useState(false);
+  const [productoAEditar, setProductoAEditar] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [opcionesVisible, setOpcionesVisible] = useState(false);
   const { listaProducto, cargando, fetchProducts } = useListaProducto();
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
@@ -31,7 +35,14 @@ export default function ListaProductos() {
       ? { backgroundColor: "#fee2e2" }
       : {};
     return (
-      <View style={[styles.fila, filaConAlerta]}>
+      <Pressable
+        onLongPress={() => abrirOpciones(item)}
+        style={({ pressed }) => [
+          styles.fila,
+          filaConAlerta,
+          pressed && { opacity: 0.6 }, // Efecto visual al mantener apretado
+        ]}
+      >
         {/* es  para que tenga tipo tabla*/}
         <Text numberOfLines={1} style={[styles.celda, { width: 120 }]}>
           {item.codigo_barras}
@@ -69,7 +80,7 @@ export default function ListaProductos() {
         <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
           {item.ubicacion}
         </Text>
-      </View>
+      </Pressable>
     );
   }, []);
   const [filterStockBajo, setFilterStockBajo] = useState(false);
@@ -95,6 +106,10 @@ export default function ListaProductos() {
       );
       setLista(productoFiltrados);
     }
+  };
+  const abrirOpciones = (producto_seleccionado) => {
+    setProductoAEditar(producto_seleccionado);
+    setOpcionesVisible(true);
   };
   useEffect(() => {
     if (!filterStockBajo && !filterAlerta) {
@@ -273,6 +288,82 @@ export default function ListaProductos() {
           </View>
         </BlurView>
       </Modal>
+      <Modal
+        animationType="fade"
+        transparent={true} // Permite ver el fondo oscuro
+        visible={modalEdicionVisible}
+        onRequestClose={() => setModalEdicionVisible(false)} // Permite cerrar con el botón "Atrás" de Android
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
+          <View
+            style={[styles.modalVentana, celular && styles.modalVentanaCelular]}
+          >
+            {productoAEditar && (
+              <EditarProducto
+                onClose={() => setModalEdicionVisible(false)}
+                producto={productoAEditar}
+              />
+            )}
+          </View>
+        </BlurView>
+      </Modal>
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={opcionesVisible}
+        onRequestClose={() => setOpcionesVisible(false)}
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
+          <View style={styles.tarjetaOpciones}>
+            <Text style={styles.tituloOpciones}>
+              Opciones: {productoAEditar?.nombre_producto}
+            </Text>
+
+            {/* BOTÓN EDITAR */}
+            <Pressable
+              style={styles.botonOpcion}
+              onPress={() => {
+                setOpcionesVisible(false); // Cierra este menú
+                setModalEdicionVisible(true); // Abre tu modal de edición
+              }}
+            >
+              <Text style={styles.textoBotonOpcion}>Editar producto</Text>
+            </Pressable>
+
+            {/* BOTÓN QR Y BARRAS */}
+            <Pressable
+              style={styles.botonOpcion}
+              onPress={() => {
+                setOpcionesVisible(false);
+                alert("Acá abrimos el modal del QR!"); // Reemplazar luego
+              }}
+            >
+              <Text style={styles.textoBotonOpcion}>
+                Ver códigos (QR / Barras)
+              </Text>
+            </Pressable>
+
+            {/* BOTÓN ELIMINAR */}
+            <Pressable
+              style={[styles.botonOpcion, styles.botonOpcionEliminar]}
+              onPress={() => {
+                setOpcionesVisible(false);
+                alert("Acá ejecutamos la función de eliminar!"); // Reemplazar luego
+              }}
+            >
+              <Text style={styles.textoBotonEliminar}>Eliminar producto</Text>
+            </Pressable>
+
+            {/* BOTÓN CANCELAR */}
+            <Pressable
+              style={styles.botonCancelarOpciones}
+              onPress={() => setOpcionesVisible(false)}
+            >
+              <Text style={styles.textoCancelarOpciones}>Cancelar</Text>
+            </Pressable>
+          </View>
+        </BlurView>
+      </Modal>
     </View>
   );
 }
@@ -334,6 +425,51 @@ const styles = StyleSheet.create({
   },
   textoBotonToolbar: {
     color: "#444",
+    fontWeight: "bold",
+  },
+  tarjetaOpciones: {
+    backgroundColor: "white",
+    width: "80%",
+    maxWidth: 400,
+    borderRadius: 15,
+    padding: 20,
+    alignItems: "stretch",
+  },
+  tituloOpciones: {
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 20,
+    color: "#333",
+  },
+  botonOpcion: {
+    backgroundColor: "#f3f4f6", // Gris clarito
+    paddingVertical: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  textoBotonOpcion: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+  },
+  botonOpcionEliminar: {
+    backgroundColor: "#fee2e2", // Rojo muy clarito
+  },
+  textoBotonEliminar: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#dc2626", // Rojo fuerte
+  },
+  botonCancelarOpciones: {
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  textoCancelarOpciones: {
+    fontSize: 16,
+    color: "#6b7280",
     fontWeight: "bold",
   },
 });

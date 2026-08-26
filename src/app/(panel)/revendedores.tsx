@@ -1,10 +1,12 @@
 import {
   asignarStockARevendedor,
   crearNuevoRevendedor,
+  editarRevendedor,
+  eliminarRevendedor,
   obtenerProductosParaAsignar,
   obtenerRevendedoresYStock,
   procesarDevolucion,
-  procesarVentaTotal,
+  procesarVenta,
 } from "@/service/stock_revendedor";
 import { StockRevendedor, Usuario } from "@/types/types";
 import * as Print from "expo-print";
@@ -31,19 +33,24 @@ export default function StockRevendedorScreen() {
   const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Modales Venta y Devolución
   const [modalDevolucionVisible, setModalDevolucionVisible] = useState(false);
+  const [modalVentaVisible, setModalVentaVisible] = useState(false);
   const [itemSeleccionado, setItemSeleccionado] =
     useState<StockRevendedor | null>(null);
   const [cantidadInput, setCantidadInput] = useState("");
 
+  // Modales Crear/Editar Revendedor
   const [modalNuevoRevVisible, setModalNuevoRevVisible] = useState(false);
-  const [nuevoRevNombre, setNuevoRevNombre] = useState("");
-  const [nuevoRevRol, setNuevoRevRol] = useState("Revendedor");
-  const [nuevoRevDescuento, setNuevoRevDescuento] = useState("");
-  const [nuevoRevBonificacion, setNuevoRevBonificacion] = useState("");
-  const [nuevoRevPermiteDevolucion, setNuevoRevPermiteDevolucion] =
-    useState(false);
+  const [modalEditarRevVisible, setModalEditarRevVisible] = useState(false);
+  const [revId, setRevId] = useState<number | null>(null);
+  const [revNombre, setRevNombre] = useState("");
+  const [revRol, setRevRol] = useState("Revendedor");
+  const [revDescuento, setRevDescuento] = useState("");
+  const [revBonificacion, setRevBonificacion] = useState("");
+  const [revPermiteDevolucion, setRevPermiteDevolucion] = useState(false);
 
+  // Modal Asignar
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
   const [asignarIdUsuario, setAsignarIdUsuario] = useState<number | null>(null);
   const [asignarIdProducto, setAsignarIdProducto] = useState<number | null>(
@@ -52,23 +59,20 @@ export default function StockRevendedorScreen() {
   const [asignarCantidad, setAsignarCantidad] = useState("");
   const [asignarEstado, setAsignarEstado] = useState("En poder");
 
+  // Selectores y PDF
   const [modalSelectorVisible, setModalSelectorVisible] = useState(false);
   const [tipoSelector, setTipoSelector] = useState<"usuario" | "producto">(
     "usuario",
   );
-
-  // === ESTADOS PARA EL MODAL DE IMPRIMIR ===
   const [modalImprimirVisible, setModalImprimirVisible] = useState(false);
   const [opcionImprimir, setOpcionImprimir] = useState<"todos" | number>(
     "todos",
   );
 
-  // Fechas por defecto (Primer día del mes y Hoy)
   const hoy = new Date();
   const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   const formatearFecha = (d: Date) =>
     `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
-
   const [fechaInicio, setFechaInicio] = useState(formatearFecha(primerDia));
   const [fechaFin, setFechaFin] = useState(formatearFecha(hoy));
 
@@ -78,7 +82,6 @@ export default function StockRevendedorScreen() {
     setLoading(true);
     const data = await obtenerRevendedoresYStock(ID_EMPRESA_ACTUAL);
     const prods = await obtenerProductosParaAsignar(ID_EMPRESA_ACTUAL);
-
     setUsuarios(data.usuarios);
     setStock(data.stock);
     setProductos(prods);
@@ -89,36 +92,39 @@ export default function StockRevendedorScreen() {
     cargarDatos();
   }, []);
 
-  const handleVendido = (item: StockRevendedor) => {
-    const confirmarYVender = async () => {
-      setLoading(true);
-      const exito = await procesarVentaTotal(item, ID_EMPRESA_ACTUAL);
-      if (exito) {
-        await cargarDatos();
-      } else {
-        Alert.alert("Error", "No se pudo registrar la venta.");
-        setLoading(false);
-      }
-    };
+  // === VENDER PARCIAL ===
+  const handleAbrirVenta = (item: StockRevendedor) => {
+    setItemSeleccionado(item);
+    setCantidadInput(item.cantidad.toString());
+    setModalVentaVisible(true);
+  };
 
-    if (Platform.OS === "web") {
-      const seguro = window.confirm(
-        `¿Marcar las ${item.cantidad} unidades como vendidas?`,
-      );
-      if (seguro) confirmarYVender();
-    } else {
-      Alert.alert(
-        "Confirmar",
-        `¿Marcar las ${item.cantidad} unidades como vendidas?`,
-        [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Vendido", onPress: confirmarYVender },
-        ],
-      );
+  const confirmarVenta = async () => {
+    const cant = parseFloat(cantidadInput);
+    if (
+      !itemSeleccionado ||
+      isNaN(cant) ||
+      cant <= 0 ||
+      cant > itemSeleccionado.cantidad
+    ) {
+      return Alert.alert("Error", "Cantidad inválida.");
+    }
+    setModalVentaVisible(false);
+    setLoading(true);
+    const exito = await procesarVenta(
+      itemSeleccionado,
+      cant,
+      ID_EMPRESA_ACTUAL,
+    );
+    if (exito) await cargarDatos();
+    else {
+      Alert.alert("Error", "No se pudo registrar la venta.");
+      setLoading(false);
     }
   };
 
-  const handleDevolver = (item: StockRevendedor) => {
+  // === DEVOLVER ===
+  const handleAbrirDevolucion = (item: StockRevendedor) => {
     setItemSeleccionado(item);
     setCantidadInput(item.cantidad.toString());
     setModalDevolucionVisible(true);
@@ -132,8 +138,7 @@ export default function StockRevendedorScreen() {
       cant <= 0 ||
       cant > itemSeleccionado.cantidad
     ) {
-      Alert.alert("Error", "Cantidad inválida.");
-      return;
+      return Alert.alert("Error", "Cantidad inválida.");
     }
     setModalDevolucionVisible(false);
     setLoading(true);
@@ -149,37 +154,84 @@ export default function StockRevendedorScreen() {
     }
   };
 
-  const handleCrearNuevoRevendedor = async () => {
-    if (nuevoRevNombre.trim() === "")
-      return Alert.alert("Atención", "Tenés que escribir el nombre.");
+  // === CRUD REVENDEDOR ===
+  const limpiarFormRevendedor = () => {
+    setRevId(null);
+    setRevNombre("");
+    setRevRol("Revendedor");
+    setRevDescuento("");
+    setRevBonificacion("");
+    setRevPermiteDevolucion(false);
+  };
 
-    const valorDesc = parseFloat(nuevoRevDescuento) || 0;
-    const valorBonif = parseFloat(nuevoRevBonificacion) || 0;
+  const guardarRevendedor = async (esEdicion: boolean) => {
+    if (revNombre.trim() === "")
+      return Alert.alert("Atención", "Tenés que escribir el nombre.");
+    const valorDesc = parseFloat(revDescuento) || 0;
+    const valorBonif = parseFloat(revBonificacion) || 0;
     const valorFinal = valorDesc > 0 ? valorDesc : valorBonif;
 
     setLoading(true);
-    const exito = await crearNuevoRevendedor(
-      nuevoRevNombre,
-      nuevoRevRol as any,
-      valorFinal,
-      ID_EMPRESA_ACTUAL,
-      nuevoRevPermiteDevolucion,
-    );
+    let exito = false;
+    if (esEdicion && revId) {
+      exito = await editarRevendedor(
+        revId,
+        revNombre,
+        revRol,
+        valorFinal,
+        revPermiteDevolucion,
+      );
+    } else {
+      exito = await crearNuevoRevendedor(
+        revNombre,
+        revRol as any,
+        valorFinal,
+        ID_EMPRESA_ACTUAL,
+        revPermiteDevolucion,
+      );
+    }
 
     if (exito) {
       setModalNuevoRevVisible(false);
-      setNuevoRevNombre("");
-      setNuevoRevDescuento("");
-      setNuevoRevBonificacion("");
-      setNuevoRevRol("Revendedor");
-      setNuevoRevPermiteDevolucion(false);
+      setModalEditarRevVisible(false);
+      limpiarFormRevendedor();
       await cargarDatos();
     } else {
-      Alert.alert("Error", "No se pudo crear. Revisá la conexión.");
+      Alert.alert("Error", "No se pudo guardar.");
       setLoading(false);
     }
   };
-
+  const handleEliminarRevendedor = (id: number, nombre: string) => {
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(
+          `¿Seguro que querés eliminar a ${nombre}?\nTodo el stock que tenga en su poder se devolverá automáticamente al inventario.`,
+        )
+      ) {
+        setLoading(true);
+        eliminarRevendedor(id, ID_EMPRESA_ACTUAL).then(() => cargarDatos());
+      }
+    } else {
+      Alert.alert(
+        "Eliminar Cuenta",
+        `¿Seguro que querés eliminar a ${nombre}?\nTodo su stock se devolverá automáticamente al inventario.`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Eliminar y Devolver",
+            style: "destructive",
+            onPress: () => {
+              setLoading(true);
+              eliminarRevendedor(id, ID_EMPRESA_ACTUAL).then(() =>
+                cargarDatos(),
+              );
+            },
+          },
+        ],
+      );
+    }
+  };
+  // === ASIGNAR ===
   const handleConfirmarAsignacion = async () => {
     const cantidadFinal = parseFloat(asignarCantidad);
     if (!asignarIdUsuario)
@@ -187,10 +239,10 @@ export default function StockRevendedorScreen() {
     if (!asignarIdProducto)
       return Alert.alert("Atención", "Seleccioná un producto.");
     if (isNaN(cantidadFinal) || cantidadFinal <= 0)
-      return Alert.alert("Atención", "Ingresá una cantidad válida mayor a 0.");
+      return Alert.alert("Atención", "Ingresá una cantidad válida.");
 
     setLoading(true);
-    const exito = await asignarStockARevendedor(
+    const resultado = await asignarStockARevendedor(
       asignarIdUsuario,
       asignarIdProducto,
       cantidadFinal,
@@ -198,7 +250,7 @@ export default function StockRevendedorScreen() {
       ID_EMPRESA_ACTUAL,
     );
 
-    if (exito) {
+    if (resultado.exito) {
       setModalAsignarVisible(false);
       setAsignarIdUsuario(null);
       setAsignarIdProducto(null);
@@ -206,49 +258,54 @@ export default function StockRevendedorScreen() {
       setAsignarEstado("En poder");
       await cargarDatos();
     } else {
-      Alert.alert("Error", "Hubo un problema al asignar el stock.");
+      Alert.alert("No se pudo asignar", resultado.error);
       setLoading(false);
     }
   };
 
-  const getNombreUsuarioSeleccionado = () => {
-    if (!asignarIdUsuario) return "Seleccionar...";
-    return (
-      usuarios.find((u) => u.id_usuario === asignarIdUsuario)?.nombre_usuario ||
-      "Desconocido"
-    );
-  };
-  const getNombreProductoSeleccionado = () => {
-    if (!asignarIdProducto) return "Seleccionar...";
-    return (
-      productos.find((p) => p.id_producto === asignarIdProducto)
-        ?.nombre_producto || "Desconocido"
-    );
-  };
+  const getNombreUsuarioSeleccionado = () =>
+    asignarIdUsuario
+      ? usuarios.find((u) => u.id_usuario === asignarIdUsuario)?.nombre_usuario
+      : "Seleccionar...";
+  const getNombreProductoSeleccionado = () =>
+    asignarIdProducto
+      ? productos.find((p) => p.id_producto === asignarIdProducto)
+          ?.nombre_producto
+      : "Seleccionar...";
 
   const usuariosFiltrados = usuarios.filter((u) => u.rol !== "Admin");
 
-  // === MAGIA: GENERACIÓN DE PDF MEJORADA ===
+  // === PDF ===
   const generarPDF = async () => {
     try {
-      setLoading(true);
-
-      // Parseamos las fechas ingresadas manualmente (DD/MM/YYYY)
       const parseDate = (str: string) => {
-        const partes = str.split("/");
-        if (partes.length === 3) {
-          return new Date(
-            parseInt(partes[2]),
-            parseInt(partes[1]) - 1,
-            parseInt(partes[0]),
-          );
-        }
-        return new Date(2000, 0, 1); // Fecha muy vieja si escriben mal
+        const p = str.split("/");
+        return p.length === 3
+          ? new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]))
+          : new Date(NaN);
       };
 
       const dateInicio = parseDate(fechaInicio);
       const dateFin = parseDate(fechaFin);
-      dateFin.setHours(23, 59, 59, 999); // Para incluir todo el día de fin
+      const hoyReal = new Date();
+      hoyReal.setHours(23, 59, 59, 999);
+
+      // Validaciones estrictas de fechas
+      if (isNaN(dateInicio.getTime()) || isNaN(dateFin.getTime()))
+        return Alert.alert(
+          "Error",
+          "Las fechas no son válidas. Usá DD/MM/YYYY",
+        );
+      if (dateInicio > hoyReal || dateFin > hoyReal)
+        return Alert.alert("Error", "No podés poner fechas del futuro.");
+      if (dateInicio > dateFin)
+        return Alert.alert(
+          "Error",
+          "La fecha de inicio no puede ser mayor a la de fin.",
+        );
+
+      dateFin.setHours(23, 59, 59, 999);
+      setLoading(true);
 
       let htmlContent = `
         <html>
@@ -260,7 +317,6 @@ export default function StockRevendedorScreen() {
               .rango { text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 40px; color: #2563eb; background: #eff6ff; padding: 10px; border-radius: 8px;}
               .usuario-box { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
               .usuario-box h2 { margin: 0; color: #1e293b; font-size: 20px; }
-              .usuario-box p { margin: 5px 0 0 0; font-size: 14px; color: #475569; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
               th, td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 13px; }
               th { background-color: #ffffff; color: #64748b; font-weight: bold; text-transform: uppercase; font-size: 11px; }
@@ -270,12 +326,11 @@ export default function StockRevendedorScreen() {
               .poder { background-color: #fef3c7; color: #b45309; }
               .vendido { background-color: #d1fae5; color: #047857; }
               .devuelto { background-color: #f1f5f9; color: #64748b; }
-              .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #94a3b8; }
             </style>
           </head>
           <body>
             <h1>Reporte de Ventas y Movimientos</h1>
-            <div class="fecha">Generado el ${new Date().toLocaleDateString("es-AR")} a las ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div>
+            <div class="fecha">Generado el ${new Date().toLocaleDateString("es-AR")}</div>
             <div class="rango">📅 Período: ${fechaInicio} al ${fechaFin}</div>
       `;
 
@@ -285,97 +340,58 @@ export default function StockRevendedorScreen() {
           : usuariosFiltrados.filter((u) => u.id_usuario === opcionImprimir);
 
       usuariosAImprimir.forEach((usuario) => {
-        // Filtramos el stock por el usuario Y por las fechas seleccionadas
         const stockFiltrado = stock.filter((s) => {
           if (s.id_usuario !== usuario.id_usuario) return false;
-          if (!(s as any).created_at) return true; // Si por algún motivo no tiene fecha, lo metemos
-
+          if (!(s as any).created_at) return true;
           const fechaMov = new Date((s as any).created_at);
           return fechaMov >= dateInicio && fechaMov <= dateFin;
         });
 
-        htmlContent += `
-          <div class="usuario-box">
-            <h2>👤 ${usuario.nombre_usuario}</h2>
-            <p><strong>Rol:</strong> ${usuario.rol}</p>
-          </div>
-        `;
+        htmlContent += `<div class="usuario-box"><h2>👤 ${usuario.nombre_usuario}</h2><p><strong>Rol:</strong> ${usuario.rol}</p></div>`;
 
         if (stockFiltrado.length === 0) {
           htmlContent += `<p style="color: #94a3b8; font-style: italic; margin-bottom: 40px;">Sin movimientos en este período.</p>`;
         } else {
           htmlContent += `
             <table>
-              <thead>
-                <tr>
-                  <th style="width: 12%;">Fecha</th>
-                  <th style="width: 20%;">Revendedor</th>
-                  <th style="width: 28%;">Producto</th>
-                  <th style="width: 10%; text-align: center;">Estado</th>
-                  <th style="width: 10%; text-align: center;">Cant.</th>
-                  <th style="width: 10%; text-align: right;">Precio</th>
-                  <th style="width: 10%; text-align: right;">Total</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Fecha</th><th>Producto</th><th style="text-align:center;">Estado</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">Precio</th><th style="text-align:right;">Total</th></tr></thead>
               <tbody>
           `;
-
           let totalVentasRevendedor = 0;
-
           stockFiltrado.forEach((s) => {
-            const nombreProd =
-              (s as any).producto?.nombre_producto || "Producto Desconocido";
+            const nombreProd = (s as any).producto?.nombre_producto || "S/C";
             const precioVenta = (s as any).producto?.precio_venta || 0;
             const subtotal = s.cantidad * precioVenta;
-
             const fechaStr = (s as any).created_at
               ? new Date((s as any).created_at).toLocaleDateString("es-AR")
               : "-";
 
-            let claseEstado = "devuelto";
-            let filaVenta = "";
-
+            let claseEstado = "devuelto",
+              filaVenta = "";
             if (s.estado === "En poder") claseEstado = "poder";
             if (s.estado === "Vendido") {
               claseEstado = "vendido";
               filaVenta = "row-venta";
-              totalVentasRevendedor += subtotal; // Sumamos a la ganancia solo si está vendido
+              totalVentasRevendedor += subtotal;
             }
 
             htmlContent += `
               <tr class="${filaVenta}">
-                <td>${fechaStr}</td>
-                <td>${usuario.nombre_usuario}</td>
-                <td style="font-weight: bold; color: #0f172a;">${nombreProd}</td>
-                <td style="text-align: center;"><span class="badge ${claseEstado}">${s.estado}</span></td>
-                <td style="text-align: center;">${s.cantidad}</td>
-                <td style="text-align: right;">$${precioVenta.toLocaleString("es-AR")}</td>
-                <td style="text-align: right; font-weight: bold; color: ${s.estado === "Vendido" ? "#047857" : "#94a3b8"};">
-                  $${subtotal.toLocaleString("es-AR")}
-                </td>
+                <td>${fechaStr}</td><td><b>${nombreProd}</b></td>
+                <td style="text-align:center;"><span class="badge ${claseEstado}">${s.estado}</span></td>
+                <td style="text-align:center;">${s.cantidad}</td>
+                <td style="text-align:right;">$${precioVenta.toLocaleString("es-AR")}</td>
+                <td style="text-align:right; font-weight:bold;">$${subtotal.toLocaleString("es-AR")}</td>
               </tr>
             `;
           });
-
-          htmlContent += `
-              </tbody>
-            </table>
-            <div class="total-box">
-              TOTAL VENTAS CONCRETADAS: $ ${totalVentasRevendedor.toLocaleString("es-AR")}
-            </div>
-          `;
+          htmlContent += `</tbody></table><div class="total-box">TOTAL VENTAS CONCRETADAS: $ ${totalVentasRevendedor.toLocaleString("es-AR")}</div>`;
         }
       });
+      htmlContent += `</body></html>`;
 
-      htmlContent += `
-            <div class="footer">Documento generado automáticamente por el Sistema de Inventario.</div>
-          </body>
-        </html>
-      `;
-
-      if (Platform.OS === "web") {
-        await Print.printAsync({ html: htmlContent });
-      } else {
+      if (Platform.OS === "web") await Print.printAsync({ html: htmlContent });
+      else {
         const { uri } = await Print.printToFileAsync({
           html: htmlContent,
           base64: false,
@@ -383,36 +399,24 @@ export default function StockRevendedorScreen() {
         await Sharing.shareAsync(uri, {
           UTI: ".pdf",
           mimeType: "application/pdf",
-          dialogTitle: "Compartir Reporte",
+          dialogTitle: "Reporte",
         });
       }
-
       setModalImprimirVisible(false);
     } catch (error) {
       Alert.alert("Error", "No se pudo generar el documento PDF.");
-      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
   const renderUsuario = ({ item: usuario }: { item: Usuario }) => {
-    const descuento = (usuario as any).descuento || 0;
-    const bonificacion =
-      usuario.rol === "Camioneta" ? 0 : usuario.bonificacion || 0;
     const permiteDevolver =
       (usuario as any).permite_devolucion === true ||
       usuario.rol === "Camioneta";
-
     const stockAsignado = stock.filter(
       (s) => s.id_usuario === usuario.id_usuario && s.estado === "En poder",
     );
-    const textoBeneficio =
-      descuento > 0
-        ? `Descuento: ${descuento}%`
-        : bonificacion > 0
-          ? `Bonificación: ${bonificacion}%`
-          : `Sin beneficios`;
 
     const renderStockEnLinea = ({ item }: { item: StockRevendedor }) => (
       <View style={styles.stockCard}>
@@ -425,14 +429,14 @@ export default function StockRevendedorScreen() {
         <View style={styles.btnRow}>
           <TouchableOpacity
             style={styles.btnVendido}
-            onPress={() => handleVendido(item)}
+            onPress={() => handleAbrirVenta(item)}
           >
-            <Text style={styles.txtVendido}>Vendido</Text>
+            <Text style={styles.txtVendido}>Vender</Text>
           </TouchableOpacity>
           {permiteDevolver && (
             <TouchableOpacity
               style={styles.btnDevolver}
-              onPress={() => handleDevolver(item)}
+              onPress={() => handleAbrirDevolucion(item)}
             >
               <Text style={styles.txtDevolver}>Devolver</Text>
             </TouchableOpacity>
@@ -444,18 +448,49 @@ export default function StockRevendedorScreen() {
     return (
       <View style={styles.userCard}>
         <View style={styles.userHeader}>
-          <Text style={styles.userName}>{usuario.nombre_usuario}</Text>
-          <View style={styles.roleContainer}>
-            <Text style={styles.roleBadge}>{usuario.rol}</Text>
-            <Text style={styles.discountTxt}>{textoBeneficio}</Text>
-            {permiteDevolver && usuario.rol !== "Camioneta" && (
-              <Text style={styles.badgePermiso}> Habilitado a devolver</Text>
-            )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.userName}>{usuario.nombre_usuario}</Text>
+            <View style={styles.roleContainer}>
+              <Text style={styles.roleBadge}>{usuario.rol}</Text>
+              {permiteDevolver && usuario.rol !== "Camioneta" && (
+                <Text style={styles.badgePermiso}>
+                  ↩️ Habilitado a devolver
+                </Text>
+              )}
+            </View>
+          </View>
+          {/* BOTONES DE EDITAR Y ELIMINAR */}
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => {
+                setRevId(usuario.id_usuario);
+                setRevNombre(usuario.nombre_usuario);
+                setRevRol(usuario.rol);
+                setRevBonificacion(usuario.bonificacion?.toString() || "");
+                setRevDescuento((usuario as any).descuento?.toString() || "");
+                setRevPermiteDevolucion(
+                  (usuario as any).permite_devolucion || false,
+                );
+                setModalEditarRevVisible(true);
+              }}
+            >
+              <Text style={{ fontSize: 18 }}>✏️</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() =>
+                handleEliminarRevendedor(
+                  usuario.id_usuario,
+                  usuario.nombre_usuario,
+                )
+              }
+            >
+              <Text style={{ fontSize: 18 }}>🗑️</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         {stockAsignado.length === 0 ? (
-          <Text style={styles.emptyTxt}>Sin stock en poder actualmente.</Text>
+          <Text style={styles.emptyTxt}>Sin stock en poder.</Text>
         ) : (
           <FlatList
             data={stockAsignado}
@@ -501,48 +536,24 @@ export default function StockRevendedorScreen() {
             Estado
           </Text>
         </View>
-
         <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 350 }}>
           {stock.length === 0 ? (
-            <Text
-              style={{
-                textAlign: "center",
-                color: "#94a3b8",
-                paddingVertical: 20,
-                fontStyle: "italic",
-              }}
-            >
-              No hay movimientos.
-            </Text>
+            <Text style={styles.emptyTxt}>No hay movimientos.</Text>
           ) : (
             stock.map((fila, index) => {
-              const revendedorObj = usuarios.find(
+              const rev = usuarios.find(
                 (u) => u.id_usuario === fila.id_usuario,
               );
-              const nombreRevendedor = revendedorObj
-                ? revendedorObj.nombre_usuario
-                : "Desconocido";
-              const nombreProducto =
-                (fila as any).producto?.nombre_producto || "Sin nombre";
-              const fechaStr = (fila as any).created_at
-                ? new Date((fila as any).created_at).toLocaleDateString("es-AR")
-                : "Reciente";
-
-              let badgeStyle = styles.badgeDefault;
-              let badgeTxtStyle = styles.badgeTxtDefault;
+              let bStyle = styles.badgeDefault,
+                bTxtStyle = styles.badgeTxtDefault;
               if (fila.estado === "En poder") {
-                badgeStyle = styles.badgeEnPoder;
-                badgeTxtStyle = styles.badgeTxtEnPoder;
+                bStyle = styles.badgeEnPoder;
+                bTxtStyle = styles.badgeTxtEnPoder;
               }
               if (fila.estado === "Vendido") {
-                badgeStyle = styles.badgeVendido;
-                badgeTxtStyle = styles.badgeTxtVendido;
+                bStyle = styles.badgeVendido;
+                bTxtStyle = styles.badgeTxtVendido;
               }
-              if (fila.estado === "Devuelto") {
-                badgeStyle = styles.badgeDevuelto;
-                badgeTxtStyle = styles.badgeTxtDevuelto;
-              }
-
               return (
                 <View
                   key={fila.id_registro}
@@ -554,7 +565,11 @@ export default function StockRevendedorScreen() {
                   <Text
                     style={[styles.tableCol, styles.tableRowTxt, { flex: 1 }]}
                   >
-                    {fechaStr}
+                    {(fila as any).created_at
+                      ? new Date((fila as any).created_at).toLocaleDateString(
+                          "es-AR",
+                        )
+                      : "Reciente"}
                   </Text>
                   <Text
                     style={[
@@ -563,12 +578,12 @@ export default function StockRevendedorScreen() {
                       { flex: 1.5, fontWeight: "bold" },
                     ]}
                   >
-                    {nombreRevendedor}
+                    {rev ? rev.nombre_usuario : "S/C"}
                   </Text>
                   <Text
                     style={[styles.tableCol, styles.tableRowTxt, { flex: 2 }]}
                   >
-                    {nombreProducto}
+                    {(fila as any).producto?.nombre_producto || "S/C"}
                   </Text>
                   <Text
                     style={[
@@ -582,8 +597,8 @@ export default function StockRevendedorScreen() {
                   <View
                     style={[styles.tableCol, { flex: 1, alignItems: "center" }]}
                   >
-                    <View style={badgeStyle}>
-                      <Text style={badgeTxtStyle}>{fila.estado}</Text>
+                    <View style={bStyle}>
+                      <Text style={bTxtStyle}>{fila.estado}</Text>
                     </View>
                   </View>
                 </View>
@@ -596,7 +611,9 @@ export default function StockRevendedorScreen() {
 
     return (
       <View style={styles.historyCard}>
-        <Text style={styles.historyMainTitle}>Historial de Asignaciones</Text>
+        <Text style={styles.historyMainTitle}>
+          Historial de Asignaciones (Nuevos primero)
+        </Text>
         {isWeb ? (
           TablaHistorial
         ) : (
@@ -614,7 +631,7 @@ export default function StockRevendedorScreen() {
         <View>
           <Text style={styles.mainTitle}>Revendedores</Text>
           <Text style={styles.mainSubtitle}>
-            {usuariosFiltrados.length} clientes especiales registrados
+            {usuariosFiltrados.length} clientes registrados
           </Text>
         </View>
         <View style={styles.headerActionBtns}>
@@ -635,7 +652,10 @@ export default function StockRevendedorScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.btnHeaderSecondary}
-            onPress={() => setModalNuevoRevVisible(true)}
+            onPress={() => {
+              limpiarFormRevendedor();
+              setModalNuevoRevVisible(true);
+            }}
           >
             <Text style={styles.txtHeaderSecondary}>+ Nuevo Revendedor</Text>
           </TouchableOpacity>
@@ -658,7 +678,360 @@ export default function StockRevendedorScreen() {
         />
       )}
 
-      {/* === MODAL DE IMPRESIÓN (AHORA CON FECHAS) === */}
+      {/* MODAL VENTA PARCIAL */}
+      <Modal
+        visible={modalVentaVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Registrar Venta</Text>
+            <Text style={styles.label}>Unidades a marcar como vendidas:</Text>
+            <TextInput
+              style={styles.modalInput}
+              keyboardType="numeric"
+              value={cantidadInput}
+              onChangeText={setCantidadInput}
+            />
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalVentaVisible(false)}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: "#22c55e" }]}
+                onPress={confirmarVenta}
+              >
+                <Text style={styles.modalTxtConfirm}>Vender</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DEVOLVER */}
+      <Modal
+        visible={modalDevolucionVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Registrar Devolución</Text>
+            <Text style={styles.label}>
+              Unidades que vuelven al inventario:
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              keyboardType="numeric"
+              value={cantidadInput}
+              onChangeText={setCantidadInput}
+            />
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalDevolucionVisible(false)}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: "#f97316" }]}
+                onPress={confirmarDevolucion}
+              >
+                <Text style={[styles.modalTxtConfirm, { color: "#fff" }]}>
+                  Devolver
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL CREAR / EDITAR REVENDEDOR */}
+      <Modal
+        visible={modalNuevoRevVisible || modalEditarRevVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>
+              {modalEditarRevVisible ? "Editar Revendedor" : "Nuevo Revendedor"}
+            </Text>
+            <Text style={styles.label}>Nombre *</Text>
+            <TextInput
+              style={styles.modalInputText}
+              placeholder="Nombre completo"
+              value={revNombre}
+              onChangeText={setRevNombre}
+            />
+            <Text style={styles.label}>Rol</Text>
+            <View style={styles.roleSelectionGroup}>
+              <TouchableOpacity
+                style={
+                  revRol === "Revendedor"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setRevRol("Revendedor")}
+              >
+                <Text
+                  style={
+                    revRol === "Revendedor"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Revendedor
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={
+                  revRol === "Socio"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setRevRol("Socio")}
+              >
+                <Text
+                  style={
+                    revRol === "Socio"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Socio
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={
+                  revRol === "Camioneta"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => {
+                  setRevRol("Camioneta");
+                  setRevDescuento("");
+                  setRevBonificacion("");
+                }}
+              >
+                <Text
+                  style={
+                    revRol === "Camioneta"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Camioneta
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {revRol !== "Camioneta" && (
+              <>
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Descuento (%)</Text>
+                    <TextInput
+                      style={styles.modalInputText}
+                      keyboardType="numeric"
+                      value={revDescuento}
+                      onChangeText={setRevDescuento}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Bonificación (%)</Text>
+                    <TextInput
+                      style={styles.modalInputText}
+                      keyboardType="numeric"
+                      value={revBonificacion}
+                      onChangeText={setRevBonificacion}
+                    />
+                  </View>
+                </View>
+                <View style={styles.switchContainer}>
+                  <Text style={styles.labelSwitch}>
+                    ¿Permitir devoluciones?
+                  </Text>
+                  <Switch
+                    value={revPermiteDevolucion}
+                    onValueChange={setRevPermiteDevolucion}
+                    trackColor={{ false: "#cbd5e1", true: "#93c5fd" }}
+                    thumbColor={revPermiteDevolucion ? "#2563eb" : "#f1f5f9"}
+                  />
+                </View>
+              </>
+            )}
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => {
+                  setModalNuevoRevVisible(false);
+                  setModalEditarRevVisible(false);
+                }}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalBtnConfirm}
+                onPress={() => guardarRevendedor(modalEditarRevVisible)}
+              >
+                <Text style={styles.modalTxtConfirm}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL ASIGNAR STOCK */}
+      <Modal
+        visible={modalAsignarVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Asignar Stock</Text>
+            <Text style={styles.label}>Revendedor *</Text>
+            <TouchableOpacity
+              style={styles.mockDropdown}
+              onPress={() => {
+                setTipoSelector("usuario");
+                setModalSelectorVisible(true);
+              }}
+            >
+              <Text style={styles.mockDropdownTxt}>
+                {getNombreUsuarioSeleccionado()}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.label}>Producto *</Text>
+            <TouchableOpacity
+              style={styles.mockDropdown}
+              onPress={() => {
+                setTipoSelector("producto");
+                setModalSelectorVisible(true);
+              }}
+            >
+              <Text style={styles.mockDropdownTxt}>
+                {getNombreProductoSeleccionado()}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.label}>Cantidad *</Text>
+            <TextInput
+              style={styles.modalInputText}
+              keyboardType="numeric"
+              value={asignarCantidad}
+              onChangeText={setAsignarCantidad}
+            />
+            <Text style={styles.label}>Estado inicial</Text>
+            <View style={styles.roleSelectionGroup}>
+              <TouchableOpacity
+                style={
+                  asignarEstado === "En poder"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setAsignarEstado("En poder")}
+              >
+                <Text
+                  style={
+                    asignarEstado === "En poder"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  📦 En poder
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={
+                  asignarEstado === "Vendido"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setAsignarEstado("Vendido")}
+              >
+                <Text
+                  style={
+                    asignarEstado === "Vendido"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  ✓ Vendido
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalAsignarVisible(false)}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalBtnConfirm}
+                onPress={handleConfirmarAsignacion}
+              >
+                <Text style={styles.modalTxtConfirm}>Asignar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* SELECTOR */}
+      <Modal
+        visible={modalSelectorVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: "80%" }]}>
+            <Text style={styles.modalTitle}>
+              Seleccionar{" "}
+              {tipoSelector === "usuario" ? "Revendedor" : "Producto"}
+            </Text>
+            <FlatList
+              data={tipoSelector === "usuario" ? usuariosFiltrados : productos}
+              keyExtractor={(item) =>
+                tipoSelector === "usuario"
+                  ? item.id_usuario.toString()
+                  : item.id_producto.toString()
+              }
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.selectorItem}
+                  onPress={() => {
+                    if (tipoSelector === "usuario")
+                      setAsignarIdUsuario(item.id_usuario);
+                    else setAsignarIdProducto(item.id_producto);
+                    setModalSelectorVisible(false);
+                  }}
+                >
+                  <Text style={styles.selectorItemTxt}>
+                    {tipoSelector === "usuario"
+                      ? item.nombre_usuario
+                      : `${item.nombre_producto} (Quedan: ${item.stock_unidades || 0})`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity
+              style={[styles.modalBtnCancel, { marginTop: 16 }]}
+              onPress={() => setModalSelectorVisible(false)}
+            >
+              <Text style={[styles.modalTxtCancel, { textAlign: "center" }]}>
+                Cerrar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* IMPRIMIR */}
       <Modal
         visible={modalImprimirVisible}
         transparent={true}
@@ -667,8 +1040,6 @@ export default function StockRevendedorScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Imprimir Reporte</Text>
-
-            <Text style={styles.label}>¿Qué querés imprimir?</Text>
             <View style={styles.roleSelectionGroup}>
               <TouchableOpacity
                 style={
@@ -713,58 +1084,49 @@ export default function StockRevendedorScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-
             {opcionImprimir !== "todos" && (
-              <>
-                <Text style={styles.label}>Seleccionar Revendedor:</Text>
-                <ScrollView
-                  style={{
-                    maxHeight: 120,
-                    borderWidth: 1,
-                    borderColor: "#cbd5e1",
-                    borderRadius: 8,
-                    marginTop: 4,
-                    marginBottom: 10,
-                  }}
-                >
-                  {usuariosFiltrados.map((u) => (
-                    <TouchableOpacity
-                      key={u.id_usuario}
+              <ScrollView
+                style={{
+                  maxHeight: 120,
+                  borderWidth: 1,
+                  borderColor: "#cbd5e1",
+                  borderRadius: 8,
+                  marginTop: 4,
+                  marginBottom: 10,
+                }}
+              >
+                {usuariosFiltrados.map((u) => (
+                  <TouchableOpacity
+                    key={u.id_usuario}
+                    style={[
+                      styles.selectorItem,
+                      {
+                        backgroundColor:
+                          opcionImprimir === u.id_usuario ? "#eff6ff" : "#fff",
+                        paddingHorizontal: 12,
+                      },
+                    ]}
+                    onPress={() => setOpcionImprimir(u.id_usuario)}
+                  >
+                    <Text
                       style={[
-                        styles.selectorItem,
+                        styles.selectorItemTxt,
                         {
-                          backgroundColor:
+                          fontWeight:
+                            opcionImprimir === u.id_usuario ? "bold" : "normal",
+                          color:
                             opcionImprimir === u.id_usuario
-                              ? "#eff6ff"
-                              : "#fff",
-                          paddingHorizontal: 12,
+                              ? "#1e40af"
+                              : "#334155",
                         },
                       ]}
-                      onPress={() => setOpcionImprimir(u.id_usuario)}
                     >
-                      <Text
-                        style={[
-                          styles.selectorItemTxt,
-                          {
-                            fontWeight:
-                              opcionImprimir === u.id_usuario
-                                ? "bold"
-                                : "normal",
-                            color:
-                              opcionImprimir === u.id_usuario
-                                ? "#1e40af"
-                                : "#334155",
-                          },
-                        ]}
-                      >
-                        👤 {u.nombre_usuario}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
+                      👤 {u.nombre_usuario}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             )}
-
             <View style={{ flexDirection: "row", gap: 12, marginTop: 10 }}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>Fecha Inicio</Text>
@@ -785,7 +1147,6 @@ export default function StockRevendedorScreen() {
                 />
               </View>
             </View>
-
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.modalBtnCancel}
@@ -802,345 +1163,6 @@ export default function StockRevendedorScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={modalDevolucionVisible}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Registrar Devolución</Text>
-            <TextInput
-              style={styles.modalInput}
-              keyboardType="numeric"
-              value={cantidadInput}
-              onChangeText={setCantidadInput}
-              placeholder="Cantidad a devolver"
-            />
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={styles.modalBtnCancel}
-                onPress={() => setModalDevolucionVisible(false)}
-              >
-                <Text style={styles.modalTxtCancel}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalBtnConfirm}
-                onPress={confirmarDevolucion}
-              >
-                <Text style={styles.modalTxtConfirm}>Confirmar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={modalNuevoRevVisible}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Nuevo Revendedor / Socio</Text>
-            <Text style={styles.label}>Nombre *</Text>
-            <TextInput
-              style={styles.modalInputText}
-              placeholder="Nombre completo"
-              value={nuevoRevNombre}
-              onChangeText={setNuevoRevNombre}
-            />
-            <Text style={styles.label}>Rol</Text>
-            <View style={styles.roleSelectionGroup}>
-              <TouchableOpacity
-                style={
-                  nuevoRevRol === "Revendedor"
-                    ? styles.roleBtnActive
-                    : styles.roleBtnInactive
-                }
-                onPress={() => setNuevoRevRol("Revendedor")}
-              >
-                <Text
-                  style={
-                    nuevoRevRol === "Revendedor"
-                      ? styles.roleTxtActive
-                      : styles.roleTxtInactive
-                  }
-                >
-                  Revendedor
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={
-                  nuevoRevRol === "Socio"
-                    ? styles.roleBtnActive
-                    : styles.roleBtnInactive
-                }
-                onPress={() => setNuevoRevRol("Socio")}
-              >
-                <Text
-                  style={
-                    nuevoRevRol === "Socio"
-                      ? styles.roleTxtActive
-                      : styles.roleTxtInactive
-                  }
-                >
-                  Socio
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={
-                  nuevoRevRol === "Camioneta"
-                    ? styles.roleBtnActive
-                    : styles.roleBtnInactive
-                }
-                onPress={() => {
-                  setNuevoRevRol("Camioneta");
-                  setNuevoRevDescuento("");
-                  setNuevoRevBonificacion("");
-                }}
-              >
-                <Text
-                  style={
-                    nuevoRevRol === "Camioneta"
-                      ? styles.roleTxtActive
-                      : styles.roleTxtInactive
-                  }
-                >
-                  Camioneta
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {nuevoRevRol !== "Camioneta" && (
-              <>
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Descuento (%)</Text>
-                    <TextInput
-                      style={styles.modalInputText}
-                      keyboardType="numeric"
-                      placeholder="Ej: 10"
-                      value={nuevoRevDescuento}
-                      onChangeText={(texto) => {
-                        setNuevoRevDescuento(texto);
-                        if (texto.length > 0) setNuevoRevBonificacion("");
-                      }}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Bonificación (%)</Text>
-                    <TextInput
-                      style={styles.modalInputText}
-                      keyboardType="numeric"
-                      placeholder="Ej: 15"
-                      value={nuevoRevBonificacion}
-                      onChangeText={(texto) => {
-                        setNuevoRevBonificacion(texto);
-                        if (texto.length > 0) setNuevoRevDescuento("");
-                      }}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.switchContainer}>
-                  <Text style={styles.labelSwitch}>
-                    ¿Permitir devoluciones de mercadería?
-                  </Text>
-                  <Switch
-                    value={nuevoRevPermiteDevolucion}
-                    onValueChange={setNuevoRevPermiteDevolucion}
-                    trackColor={{ false: "#cbd5e1", true: "#93c5fd" }}
-                    thumbColor={
-                      nuevoRevPermiteDevolucion ? "#2563eb" : "#f1f5f9"
-                    }
-                  />
-                </View>
-              </>
-            )}
-
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={styles.modalBtnCancel}
-                onPress={() => setModalNuevoRevVisible(false)}
-              >
-                <Text style={styles.modalTxtCancel}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalBtnConfirm}
-                onPress={handleCrearNuevoRevendedor}
-              >
-                <Text style={styles.modalTxtConfirm}>Crear</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={modalAsignarVisible}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Asignar Stock a Revendedor</Text>
-            <Text style={styles.label}>Revendedor *</Text>
-            <TouchableOpacity
-              style={styles.mockDropdown}
-              onPress={() => {
-                setTipoSelector("usuario");
-                setModalSelectorVisible(true);
-              }}
-            >
-              <Text style={styles.mockDropdownTxt}>
-                {getNombreUsuarioSeleccionado()}
-              </Text>
-            </TouchableOpacity>
-            <Text style={styles.label}>Producto *</Text>
-            <TouchableOpacity
-              style={styles.mockDropdown}
-              onPress={() => {
-                setTipoSelector("producto");
-                setModalSelectorVisible(true);
-              }}
-            >
-              <Text style={styles.mockDropdownTxt}>
-                {getNombreProductoSeleccionado()}
-              </Text>
-            </TouchableOpacity>
-            <Text style={styles.label}>Cantidad *</Text>
-            <TextInput
-              style={styles.modalInputText}
-              keyboardType="numeric"
-              placeholder="0"
-              value={asignarCantidad}
-              onChangeText={setAsignarCantidad}
-            />
-            <Text style={styles.label}>Estado de entrega</Text>
-            <View style={styles.stateSelectionGroup}>
-              <TouchableOpacity
-                style={
-                  asignarEstado === "En poder"
-                    ? styles.stateBtnActive
-                    : styles.stateBtnInactive
-                }
-                onPress={() => setAsignarEstado("En poder")}
-              >
-                <Text
-                  style={
-                    asignarEstado === "En poder"
-                      ? styles.stateTxtActive
-                      : styles.stateTxtInactive
-                  }
-                >
-                  📦 En poder
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={
-                  asignarEstado === "Vendido"
-                    ? styles.stateBtnActive
-                    : styles.stateBtnInactive
-                }
-                onPress={() => setAsignarEstado("Vendido")}
-              >
-                <Text
-                  style={
-                    asignarEstado === "Vendido"
-                      ? styles.stateTxtActive
-                      : styles.stateTxtInactive
-                  }
-                >
-                  ✓ Vendido
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={
-                  asignarEstado === "Devuelto"
-                    ? styles.stateBtnActive
-                    : styles.stateBtnInactive
-                }
-                onPress={() => setAsignarEstado("Devuelto")}
-              >
-                <Text
-                  style={
-                    asignarEstado === "Devuelto"
-                      ? styles.stateTxtActive
-                      : styles.stateTxtInactive
-                  }
-                >
-                  Devuelto
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={styles.modalBtnCancel}
-                onPress={() => setModalAsignarVisible(false)}
-              >
-                <Text style={styles.modalTxtCancel}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalBtnConfirm}
-                onPress={handleConfirmarAsignacion}
-              >
-                <Text style={styles.modalTxtConfirm}>Asignar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={modalSelectorVisible}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { maxHeight: "80%" }]}>
-            <Text style={styles.modalTitle}>
-              Seleccionar{" "}
-              {tipoSelector === "usuario" ? "Revendedor" : "Producto"}
-            </Text>
-            <FlatList
-              data={tipoSelector === "usuario" ? usuariosFiltrados : productos}
-              keyExtractor={(item) =>
-                tipoSelector === "usuario"
-                  ? item.id_usuario.toString()
-                  : item.id_producto.toString()
-              }
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.selectorItem}
-                  onPress={() => {
-                    if (tipoSelector === "usuario")
-                      setAsignarIdUsuario(item.id_usuario);
-                    if (tipoSelector === "producto")
-                      setAsignarIdProducto(item.id_producto);
-                    setModalSelectorVisible(false);
-                  }}
-                >
-                  <Text style={styles.selectorItemTxt}>
-                    {tipoSelector === "usuario"
-                      ? item.nombre_usuario
-                      : `${item.nombre_producto} (Stock: ${item.stock_unidades || 0})`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity
-              style={[styles.modalBtnCancel, { marginTop: 16 }]}
-              onPress={() => setModalSelectorVisible(false)}
-            >
-              <Text style={[styles.modalTxtCancel, { textAlign: "center" }]}>
-                Cerrar
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1173,7 +1195,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flex: Platform.OS === "web" ? undefined : 1,
     alignItems: "center",
-    justifyContent: "center",
   },
   txtHeaderPrimary: { color: "#fff", fontWeight: "bold" },
   btnHeaderSecondary: {
@@ -1185,7 +1206,6 @@ const styles = StyleSheet.create({
     borderColor: "#cbd5e1",
     flex: Platform.OS === "web" ? undefined : 1,
     alignItems: "center",
-    justifyContent: "center",
   },
   txtHeaderSecondary: { color: "#334155", fontWeight: "bold" },
   btnHeaderPrint: {
@@ -1197,7 +1217,6 @@ const styles = StyleSheet.create({
     borderColor: "#cbd5e1",
     flex: Platform.OS === "web" ? undefined : 1,
     alignItems: "center",
-    justifyContent: "center",
   },
   txtHeaderPrint: { color: "#475569", fontWeight: "bold" },
   userCard: {
@@ -1209,6 +1228,8 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
   },
   userHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: "#f1f5f9",
@@ -1230,7 +1251,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  discountTxt: { color: "#475569", fontSize: 14, fontWeight: "500" },
   badgePermiso: { fontSize: 12, color: "#059669", fontWeight: "bold" },
   emptyTxt: {
     color: "#94a3b8",
@@ -1303,7 +1323,6 @@ const styles = StyleSheet.create({
   tableCol: { justifyContent: "center", paddingRight: 10 },
   tableHeadTxt: { color: "#64748b", fontSize: 13, fontWeight: "600" },
   tableRowTxt: { color: "#334155", fontSize: 14 },
-  tableRowCode: { color: "#94a3b8", fontSize: 12, marginTop: 2 },
   badgeDefault: {
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -1332,11 +1351,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#f1f5f9",
   },
   badgeTxtDevuelto: { color: "#64748b", fontWeight: "bold", fontSize: 12 },
+  // FONDO OSCURECIDO PARA MODALES (DIMMED)
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     padding: 16,
   },
   modalBox: {
@@ -1412,25 +1432,6 @@ const styles = StyleSheet.create({
   },
   roleTxtActive: { color: "#fff", fontWeight: "bold" },
   roleTxtInactive: { color: "#475569", fontWeight: "bold" },
-  stateSelectionGroup: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  stateBtnActive: {
-    flex: 1,
-    backgroundColor: "#2563eb",
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  stateBtnInactive: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-  },
-  stateTxtActive: { color: "#fff", fontWeight: "bold", fontSize: 13 },
-  stateTxtInactive: { color: "#64748b", fontWeight: "bold", fontSize: 13 },
   modalBtnRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -1450,9 +1451,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: "#93c5fd",
+    backgroundColor: "#2563eb",
   },
-  modalTxtConfirm: { color: "#1e3a8a", fontWeight: "bold" },
+  modalTxtConfirm: { color: "#fff", fontWeight: "bold" },
   switchContainer: {
     flexDirection: "row",
     alignItems: "center",
