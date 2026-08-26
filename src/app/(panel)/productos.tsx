@@ -1,7 +1,9 @@
+import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
+import { obtenerAlertaProyeccion, obtenerStockBajo } from "@/service/producto";
 import { BlurView } from "expo-blur";
 import { Link, Stack } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -17,15 +19,19 @@ export default function ListaProductos() {
   const { width } = useWindowDimensions();
   const celular = width < 768;
   const [modalVisible, setModalVisible] = useState(false);
-  const { listaProducto, setlistaProducto, cargando, fetchProducts } =
-    useListaProducto();
+  const { listaProducto, cargando, fetchProducts } = useListaProducto();
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
     [],
   );
-  const renderItem = useCallback(
-    ({ item }: { item: any }) => (
-      <View style={styles.fila}>
+  const [lista, setLista] = useState(listaProducto);
+  const { empresa } = useEmpresa();
+  const renderItem = useCallback(({ item }: { item: any }) => {
+    const filaConAlerta = item.alerta_proyeccion
+      ? { backgroundColor: "#fee2e2" }
+      : {};
+    return (
+      <View style={[styles.fila, filaConAlerta]}>
         {/* es  para que tenga tipo tabla*/}
         <Text numberOfLines={1} style={[styles.celda, { width: 120 }]}>
           {item.codigo_barras}
@@ -64,30 +70,102 @@ export default function ListaProductos() {
           {item.ubicacion}
         </Text>
       </View>
-    ),
-    [],
-  );
+    );
+  }, []);
+  const [filterStockBajo, setFilterStockBajo] = useState(false);
+  const [filterAlerta, setFilterAlerta] = useState(false);
+  const stockBajo = async () => {
+    setFilterAlerta(false);
+    const nuevoEstado = !filterStockBajo;
+    setFilterStockBajo(nuevoEstado);
+    if (nuevoEstado == true) {
+      const productoFiltrado = await obtenerStockBajo(empresa.id_empresa);
+      setLista(productoFiltrado);
+    } else {
+      setLista(listaProducto);
+    }
+  };
+  const alerta_proyeccion = async () => {
+    const nuevoEstado = !filterAlerta;
+    setFilterStockBajo(false);
+    setFilterAlerta(nuevoEstado);
+    if (nuevoEstado == true) {
+      const productoFiltrados = await obtenerAlertaProyeccion(
+        empresa.id_empresa,
+      );
+      setLista(productoFiltrados);
+    }
+  };
+  useEffect(() => {
+    if (!filterStockBajo && !filterAlerta) {
+      setLista(listaProducto);
+    }
+  }, [listaProducto, filterStockBajo, filterAlerta]);
 
   return (
     <View style={{ flex: 1, padding: celular ? 10 : 20 }}>
       <Stack.Screen options={{ title: "Lista de productos" }} />
+      <View style={styles.toolbar}>
+        <Pressable
+          onPress={() => setModalVisible(true)}
+          style={styles.botonToolbar}
+        >
+          <Text style={styles.textoBotonToolbar}>Crear Producto +</Text>
+        </Pressable>
+        <Link href="/" asChild>
+          <Pressable style={styles.botonToolbar}>
+            <Text style={styles.textoBotonToolbar}>Imprimir lista</Text>
+          </Pressable>
+        </Link>
+        <Pressable
+          onPress={stockBajo}
+          style={[
+            styles.botonToolbar,
+            {
+              backgroundColor: filterStockBajo ? "#2563eb" : "#e5e7eb",
+              padding: 10,
+              borderRadius: 5,
+              marginVertical: 5,
+            },
+          ]}
+        >
+          <Text style={[{ color: filterStockBajo ? "white" : "black" }]}>
+            {filterStockBajo ? "☑ Solo stock bajo" : "☐ Solo stock bajo"}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={alerta_proyeccion}
+          style={{
+            backgroundColor: filterAlerta ? "#2563eb" : "#e5e7eb",
+            padding: 10,
+            borderRadius: 5,
+            marginVertical: 5,
+          }}
+        >
+          <Text
+            style={{
+              color: filterAlerta ? "white" : "#444",
+              fontWeight: "600",
+            }}
+          >
+            {filterAlerta
+              ? "☑ Solo productos con alerta"
+              : "☐ Solo productos con alerta"}
+          </Text>
+        </Pressable>
+      </View>
       {cargando ? (
         <Text>Cargando...</Text>
-      ) : !listaProducto || listaProducto.length === 0 ? (
-        <Text> no hay productos </Text>
+      ) : !lista || lista.length === 0 ? (
+        <Text>
+          {filterAlerta
+            ? "No hay ningún producto con alerta de proyección."
+            : filterStockBajo
+              ? "No tenés ningún producto con stock bajo."
+              : "No hay productos cargados en tu inventario."}{" "}
+        </Text>
       ) : (
         <View style={{ flex: 1 }}>
-          <Text>Lista de Productos</Text>
-          <Pressable onPress={() => setModalVisible(true)}>
-            <Text>Crear Producto +</Text>
-          </Pressable>
-          <Link href="/" asChild>
-            <Pressable>
-              <Text>Imprimir lista</Text>
-            </Pressable>
-          </Link>
-          <Text>Solo stock bajo</Text>
-          <Text>Solo productos con alerta</Text>
           <ScrollView horizontal={true} style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>
               <View style={styles.fila}>
@@ -167,7 +245,7 @@ export default function ListaProductos() {
               <FlatList
                 // flatList ya viene con scroll view y podes limitar las columnas con num columns
                 // es el arreglo que va a recorrer
-                data={listaProducto}
+                data={lista}
                 // sirve para saber cual es la clave de cada fila tiene que ser string lo que se pasa en key extractor
                 keyExtractor={memoizedKeyExtractor}
                 // se le muestra como muestra el item desestructurandolo
@@ -240,5 +318,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 4,
     textAlign: "center", // Centra el texto como en Excel
+  },
+  toolbar: {
+    flexDirection: "row", // Los pone uno al lado del otro
+    flexWrap: "wrap", // Si no entran en la pantalla del celular, los baja de renglón
+    gap: 10, // Espacio entre los botones (funciona perfecto en web y react native moderno)
+    marginBottom: 15, // Espacio para que no se peguen a la tabla
+    alignItems: "center",
+  },
+  botonToolbar: {
+    backgroundColor: "#e5e7eb", // Gris clarito por defecto
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  textoBotonToolbar: {
+    color: "#444",
+    fontWeight: "bold",
   },
 });
