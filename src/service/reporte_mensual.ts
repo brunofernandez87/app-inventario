@@ -129,8 +129,6 @@ export const obtenerHistorialGraficos = async (id_empresa: number) => {
     const labels = [];
     const ganancias = [0, 0, 0, 0, 0, 0];
     const transacciones = [0, 0, 0, 0, 0, 0];
-
-    // Calculamos el inicio (hace 5 meses atrás)
     const fechaInicio = new Date();
     fechaInicio.setMonth(fechaInicio.getMonth() - 5);
     fechaInicio.setDate(1);
@@ -185,18 +183,14 @@ export const obtenerHistorialGraficos = async (id_empresa: number) => {
   }
 };
 
-// === NUEVA FUNCIÓN: PROYECCIONES Y RENTABILIDAD REAL ===
 export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
   try {
-    // 1. Obtenemos TODOS los productos
     const { data: productos, error: errProd } = await supabase
       .from("producto")
       .select("*")
       .eq("id_empresa", id_empresa);
 
     if (errProd) throw errProd;
-
-    // 2. Obtenemos las ventas de los últimos 6 meses para calcular promedios
     const fechaInicio = new Date();
     fechaInicio.setMonth(fechaInicio.getMonth() - 6);
 
@@ -209,8 +203,6 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
       .gte("fecha_movimiento", fechaInicio.toISOString());
 
     if (errVentas) throw errVentas;
-
-    // 3. Agrupamos cuántas unidades se vendieron de cada producto en total
     const ventasPorProducto: Record<number, number> = {};
     ventas?.forEach((v) => {
       if (!ventasPorProducto[v.id_producto])
@@ -223,13 +215,10 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
     let totalCosto = 0;
     let totalPrecio = 0;
 
-    // 4. Calculamos las métricas producto por producto
     productos?.forEach((prod) => {
       const stock = prod.stock_unidades || 0;
       const ventasSeisMeses = ventasPorProducto[prod.id_producto] || 0;
       const promMensual = ventasSeisMeses / 6;
-
-      // --- CÁLCULO DE PROYECCIONES ---
       let mesesRestantes = "-";
       let estado = "Sin historial";
 
@@ -250,8 +239,6 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
         estado: estado,
       });
 
-      // --- CÁLCULO DE RENTABILIDAD ---
-      // Lo forzamos como `any` por si la tabla no tiene la columna `precio_costo` aún
       const costo = (prod as any).precio_costo || 0;
       const precio = prod.precio_venta || 0;
       const ganancia = precio - costo;

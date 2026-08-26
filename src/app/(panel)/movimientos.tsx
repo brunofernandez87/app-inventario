@@ -17,8 +17,6 @@ export default function MovimientosScreen() {
   const [loading, setLoading] = useState(true);
   const [movimientos, setMovimientos] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState("");
-
-  // Estados para el desplegable (Filtro)
   const [filtroTipo, setFiltroTipo] = useState("Todos");
   const [modalFiltroVisible, setModalFiltroVisible] = useState(false);
   const opcionesFiltro = ["Todos", "Entrada", "Salida", "Devuelto"];
@@ -37,20 +35,17 @@ export default function MovimientosScreen() {
     }, []),
   );
 
-  // === LÓGICA DE FILTRADO Y BÚSQUEDA ===
   const movimientosFiltrados = movimientos.filter((mov) => {
     const nombreProd = mov.producto?.nombre_producto?.toLowerCase() || "";
     const codigoProd = mov.producto?.codigo_barras?.toLowerCase() || "";
     const motivo = mov.motivo?.toLowerCase() || "";
     const tipo = mov.tipo_movimiento?.toUpperCase() || "";
 
-    // 1. Filtro por el texto del buscador
     const coincideBusqueda =
       nombreProd.includes(busqueda.toLowerCase()) ||
       codigoProd.includes(busqueda.toLowerCase()) ||
       motivo.includes(busqueda.toLowerCase());
 
-    // 2. Filtro por el desplegable
     let coincideTipo = true;
     if (filtroTipo === "Entrada") {
       coincideTipo = tipo === "ENTRADA" && !motivo.includes("devolución");
@@ -66,7 +61,6 @@ export default function MovimientosScreen() {
     return coincideBusqueda && coincideTipo;
   });
 
-  // === COMPONENTE REUTILIZABLE PARA ETIQUETAS (BADGES) ===
   const BadgeTipo = ({ tipo, motivo }: { tipo: string; motivo: string }) => {
     let bg = "#f1f5f9",
       color = "#64748b",
@@ -95,7 +89,6 @@ export default function MovimientosScreen() {
     );
   };
 
-  // Formateador de fecha
   const formatearFecha = (fechaIso: string) => {
     const d = new Date(fechaIso);
     return {
@@ -107,7 +100,6 @@ export default function MovimientosScreen() {
     };
   };
 
-  // === RENDER DE CADA FILA (Responsivo) ===
   const renderItem = ({ item }: { item: any }) => {
     const { fecha, hora } = formatearFecha(item.fecha_movimiento);
     const nombreProducto =
@@ -119,8 +111,6 @@ export default function MovimientosScreen() {
         : `+ ${item.cantidad}`;
     const colorCantidad =
       item.tipo_movimiento === "SALIDA" ? "#b91c1c" : "#15803d";
-
-    // Vista para CELULAR (Tarjetas apiladas)
     if (Platform.OS !== "web") {
       return (
         <View style={styles.cardMobile}>
@@ -144,7 +134,6 @@ export default function MovimientosScreen() {
       );
     }
 
-    // Vista para PC (Tabla tradicional)
     return (
       <View style={styles.tableRow}>
         <View style={[styles.tableCol, { flex: 1 }]}>
@@ -315,8 +304,6 @@ const styles = StyleSheet.create({
   },
   tituloPrincipal: { fontSize: 28, fontWeight: "bold", color: "#0f172a" },
   subtitulo: { fontSize: 14, color: "#64748b", marginTop: 4 },
-
-  // Filtro
   filterContainer: { flexDirection: "row", alignItems: "center", gap: 8 },
   labelFiltro: { fontSize: 14, color: "#475569", fontWeight: "600" },
   dropdownButton: {
@@ -335,7 +322,6 @@ const styles = StyleSheet.create({
     textAlign: "space-between",
   },
 
-  // Buscador
   searchContainer: { marginBottom: 20 },
   searchInput: {
     backgroundColor: "#fff",
@@ -347,7 +333,6 @@ const styles = StyleSheet.create({
     color: "#334155",
   },
 
-  // Contenedor principal de la lista
   listContainer: {
     flex: 1,
     backgroundColor: "#fff",
@@ -358,7 +343,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  // Estilos de Tabla (WEB)
   tableHead: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -383,7 +367,6 @@ const styles = StyleSheet.create({
   rowTxtBase: { fontSize: 15, color: "#334155" },
   rowTxtSub: { fontSize: 13, color: "#94a3b8", marginTop: 4 },
 
-  // Estilos de Tarjeta (CELULAR)
   cardMobile: {
     backgroundColor: "#fff",
     borderRadius: 8,
@@ -420,7 +403,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 
-  // Badges
   badge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   badgeTxt: { fontSize: 12, fontWeight: "bold", textTransform: "uppercase" },
 
@@ -431,7 +413,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  // Modal del Desplegable
   modalOverlay: {
     flex: 1,
     justifyContent: "center",

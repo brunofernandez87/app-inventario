@@ -11,8 +11,6 @@ export const obtenerRevendedoresYStock = async (id_empresa: number) => {
       .order("nombre_usuario", { ascending: true });
 
     if (errUsuarios) throw errUsuarios;
-
-    // EL ORDENAMIENTO: id_registro descendente para que lo más nuevo quede arriba
     const { data: stock, error: errStock } = await supabase
       .from("stock_revendedor")
       .select(
@@ -68,7 +66,6 @@ export const procesarDevolucion = async (
       });
     }
 
-    // REINTEGRO DE STOCK AL INVENTARIO
     const { data: prod } = await supabase
       .from("producto")
       .select("stock_unidades")
@@ -96,7 +93,6 @@ export const procesarDevolucion = async (
   }
 };
 
-// === VENTA PARCIAL (NUEVO) ===
 export const procesarVenta = async (
   registro: StockRevendedor,
   cantidad_vendida: number,
@@ -167,7 +163,6 @@ export const crearNuevoRevendedor = async (
   }
 };
 
-// === EDITAR Y ELIMINAR REVENDEDOR (NUEVO) ===
 export const editarRevendedor = async (
   id_usuario: number,
   nombre_usuario: string,

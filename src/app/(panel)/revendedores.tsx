@@ -32,15 +32,11 @@ export default function StockRevendedorScreen() {
   const [stock, setStock] = useState<StockRevendedor[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Modales Venta y Devolución
   const [modalDevolucionVisible, setModalDevolucionVisible] = useState(false);
   const [modalVentaVisible, setModalVentaVisible] = useState(false);
   const [itemSeleccionado, setItemSeleccionado] =
     useState<StockRevendedor | null>(null);
   const [cantidadInput, setCantidadInput] = useState("");
-
-  // Modales Crear/Editar Revendedor
   const [modalNuevoRevVisible, setModalNuevoRevVisible] = useState(false);
   const [modalEditarRevVisible, setModalEditarRevVisible] = useState(false);
   const [revId, setRevId] = useState<number | null>(null);
@@ -50,7 +46,6 @@ export default function StockRevendedorScreen() {
   const [revBonificacion, setRevBonificacion] = useState("");
   const [revPermiteDevolucion, setRevPermiteDevolucion] = useState(false);
 
-  // Modal Asignar
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
   const [asignarIdUsuario, setAsignarIdUsuario] = useState<number | null>(null);
   const [asignarIdProducto, setAsignarIdProducto] = useState<number | null>(
@@ -59,7 +54,6 @@ export default function StockRevendedorScreen() {
   const [asignarCantidad, setAsignarCantidad] = useState("");
   const [asignarEstado, setAsignarEstado] = useState("En poder");
 
-  // Selectores y PDF
   const [modalSelectorVisible, setModalSelectorVisible] = useState(false);
   const [tipoSelector, setTipoSelector] = useState<"usuario" | "producto">(
     "usuario",
@@ -68,7 +62,6 @@ export default function StockRevendedorScreen() {
   const [opcionImprimir, setOpcionImprimir] = useState<"todos" | number>(
     "todos",
   );
-
   const hoy = new Date();
   const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   const formatearFecha = (d: Date) =>
@@ -92,7 +85,6 @@ export default function StockRevendedorScreen() {
     cargarDatos();
   }, []);
 
-  // === VENDER PARCIAL ===
   const handleAbrirVenta = (item: StockRevendedor) => {
     setItemSeleccionado(item);
     setCantidadInput(item.cantidad.toString());
@@ -123,7 +115,6 @@ export default function StockRevendedorScreen() {
     }
   };
 
-  // === DEVOLVER ===
   const handleAbrirDevolucion = (item: StockRevendedor) => {
     setItemSeleccionado(item);
     setCantidadInput(item.cantidad.toString());
@@ -154,7 +145,6 @@ export default function StockRevendedorScreen() {
     }
   };
 
-  // === CRUD REVENDEDOR ===
   const limpiarFormRevendedor = () => {
     setRevId(null);
     setRevNombre("");
@@ -231,7 +221,6 @@ export default function StockRevendedorScreen() {
       );
     }
   };
-  // === ASIGNAR ===
   const handleConfirmarAsignacion = async () => {
     const cantidadFinal = parseFloat(asignarCantidad);
     if (!asignarIdUsuario)
@@ -275,7 +264,6 @@ export default function StockRevendedorScreen() {
 
   const usuariosFiltrados = usuarios.filter((u) => u.rol !== "Admin");
 
-  // === PDF ===
   const generarPDF = async () => {
     try {
       const parseDate = (str: string) => {
@@ -290,7 +278,6 @@ export default function StockRevendedorScreen() {
       const hoyReal = new Date();
       hoyReal.setHours(23, 59, 59, 999);
 
-      // Validaciones estrictas de fechas
       if (isNaN(dateInicio.getTime()) || isNaN(dateFin.getTime()))
         return Alert.alert(
           "Error",
@@ -611,9 +598,7 @@ export default function StockRevendedorScreen() {
 
     return (
       <View style={styles.historyCard}>
-        <Text style={styles.historyMainTitle}>
-          Historial de Asignaciones (Nuevos primero)
-        </Text>
+        <Text style={styles.historyMainTitle}>Historial de Asignaciones</Text>
         {isWeb ? (
           TablaHistorial
         ) : (
