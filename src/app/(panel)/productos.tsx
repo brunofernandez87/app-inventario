@@ -18,6 +18,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import CodigoProducto from "../producto/codigoProducto";
 import CreacionProducto from "../producto/crearProducto";
 import EditarProducto from "../producto/editarProducto";
 import VentanaConfirmacion from "../ventanaConfirmacion";
@@ -30,6 +31,8 @@ export default function ListaProductos() {
   const [opcionesVisible, setOpcionesVisible] = useState(false);
   const { listaProducto, cargando, fetchProducts } = useListaProducto();
   const [modalElminar, setModalEliminar] = useState(false);
+  const [modalCodigo, setModalCodigo] = useState(false);
+
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
     [],
@@ -352,7 +355,7 @@ export default function ListaProductos() {
               style={styles.botonOpcion}
               onPress={() => {
                 setOpcionesVisible(false);
-                alert("Acá abrimos el modal del QR!"); // Reemplazar luego
+                setModalCodigo(true);
               }}
             >
               <Text style={styles.textoBotonOpcion}>
@@ -378,6 +381,25 @@ export default function ListaProductos() {
             >
               <Text style={styles.textoCancelarOpciones}>Cancelar</Text>
             </Pressable>
+          </View>
+        </BlurView>
+      </Modal>
+      <Modal
+        animationType="fade"
+        transparent={true} // Permite ver el fondo oscuro
+        visible={modalCodigo}
+        onRequestClose={() => setModalCodigo(false)} // Permite cerrar con el botón "Atrás" de Android
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
+          <View
+            style={[styles.modalVentana, celular && styles.modalVentanaCelular]}
+          >
+            {productoAEditar && (
+              <CodigoProducto
+                onClose={() => setModalCodigo(false)}
+                producto={productoAEditar}
+              />
+            )}
           </View>
         </BlurView>
       </Modal>

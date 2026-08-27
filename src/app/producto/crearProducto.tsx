@@ -14,7 +14,6 @@ import {
 
 export default function CreacionProducto({ onClose }) {
   const [codigo_alfanumerico, setCodigo_alfanumerico] = useState("");
-  const [codigo_barras, setCodigo_barras] = useState("");
   const [nombre, setNombre] = useState("");
   const [marca, setMarca] = useState("");
   const [ubicacion, setUbicacion] = useState("");
@@ -67,6 +66,8 @@ export default function CreacionProducto({ onClose }) {
     costo_compra.trim() == "" ||
     precio_venta.trim() == "";
   const guardarProducto = async () => {
+    let codigoBarrasFinal =
+      "200" + Math.floor(1000000000 + Math.random() * 9000000000).toString();
     const id_empresa = empresa?.id_empresa;
     if (id_empresa == null) {
       alert("Error al crear producto");
@@ -79,7 +80,7 @@ export default function CreacionProducto({ onClose }) {
     const nuevoProducto = {
       id_empresa: id_empresa,
       codigo_alfanumerico: codigo_alfanumerico,
-      codigo_barras: codigo_barras,
+      codigo_barras: codigoBarrasFinal,
       nombre_producto: nombre,
       marca: marca,
       ubicacion: ubicacion,
@@ -114,14 +115,6 @@ export default function CreacionProducto({ onClose }) {
           value={codigo_alfanumerico}
           onChangeText={setCodigo_alfanumerico}
           placeholder="CC-2.5"
-          placeholderTextColor="#9ca3af"
-        />
-        <Text style={styles.label}>Codigo de barras</Text>
-        <TextInput
-          style={styles.input}
-          value={codigo_barras}
-          onChangeText={setCodigo_barras}
-          placeholder="CC2.5L"
           placeholderTextColor="#9ca3af"
         />
         <Text style={styles.label}>Nombre</Text>
@@ -213,7 +206,7 @@ export default function CreacionProducto({ onClose }) {
         />
 
         <Text style={styles.label}>
-          Bonificacion por paquete cerrado (sin el signo %)
+          Porcentaje de Bonificacion por paquete cerrado (sin el signo %)
         </Text>
         <TextInput
           style={styles.input}
