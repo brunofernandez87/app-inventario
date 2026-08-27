@@ -1,11 +1,90 @@
 import Barcode from "@kichiyaki/react-native-barcode-generator";
+import * as Print from "expo-print";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 export default function codigoProducto({ onClose, producto }) {
-  const imprimir_codigos = () => {
-    alert("imprimiendo");
-    onClose();
+  const imprimir_codigos = async () => {
+    const nombre = producto?.nombre_producto || "Producto sin nombre";
+    const meta = `${producto?.marca || ""} - ${producto?.ubicacion || ""}`;
+    const valorQR = producto?.codigo_alfanumerico || "SIN-CODIGO";
+    const valorBarras = producto?.codigo_barras || "0000000000000";
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(valorQR)}`;
+    const barcodeUrl = `https://barcode.orcascan.com/?type=code128&data=${encodeURIComponent(valorBarras)}`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            /* Elimina la URL y la fecha automáticas del navegador */
+            @page { size: auto; margin: 0mm; } 
+            body { 
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+              display: flex; 
+              justify-content: center; 
+              padding: 40px; /* Margen para no pegar la etiqueta al borde físico del papel */
+              background-color: white;
+            }
+            .etiqueta { 
+              border: 2px dashed #ccc; 
+              padding: 30px; 
+              border-radius: 10px; 
+              width: 350px; 
+              text-align: center; 
+            }
+            h2 { margin: 0 0 5px 0; font-size: 22px; color: #1e293b; }
+            p { margin: 0 0 25px 0; color: #64748b; font-size: 14px; font-family: monospace; }
+            .seccion { margin-bottom: 25px; }
+            .label { font-size: 12px; color: #94a3b8; letter-spacing: 1px; margin-bottom: 10px; font-weight: bold; }
+            .texto-codigo { margin-top: 5px; font-size: 14px; font-family: monospace; font-weight: bold; color: #334155; }
+            img { max-width: 100%; height: auto; }
+            .barcode-img { height: 70px; }
+          </style>
+        </head>
+        <body>
+          <div class="etiqueta">
+            <h2>${nombre}</h2>
+            <p>${meta}</p>
+
+            <div class="seccion">
+              <div class="label">CÓDIGO QR</div>
+              <img src="${qrUrl}" alt="Código QR" />
+              <div class="texto-codigo">${valorQR}</div>
+            </div>
+
+            <div class="seccion">
+              <div class="label">CÓDIGO DE BARRAS</div>
+              <img src="${barcodeUrl}" class="barcode-img" alt="Código de Barras" />
+              <div class="texto-codigo">${valorBarras}</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+    try {
+      if (Platform.OS === "web") {
+        const ventanaImpresion = window.open("", "_blank");
+        ventanaImpresion.document.write(htmlContent);
+        ventanaImpresion.document.close();
+
+        ventanaImpresion.onload = () => {
+          ventanaImpresion.focus();
+          ventanaImpresion.print();
+          ventanaImpresion.close();
+          onClose();
+        };
+      } else {
+        await Print.printAsync({
+          html: htmlContent,
+        });
+        onClose();
+      }
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      alert("Hubo un error al intentar imprimir la etiqueta.");
+    }
   };
   const valorQR = producto?.codigo_alfanumerico || "SIN-CODIGO";
   const valorBarras = producto?.codigo_barras || "0000000000000";
