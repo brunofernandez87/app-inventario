@@ -21,6 +21,7 @@ import {
 import CodigoProducto from "../producto/codigoProducto";
 import CreacionProducto from "../producto/crearProducto";
 import EditarProducto from "../producto/editarProducto";
+import { imprimirPDF } from "../utils/impresora";
 import VentanaConfirmacion from "../ventanaConfirmacion";
 export default function ListaProductos() {
   const { width } = useWindowDimensions();
@@ -32,7 +33,6 @@ export default function ListaProductos() {
   const { listaProducto, cargando, fetchProducts } = useListaProducto();
   const [modalElminar, setModalEliminar] = useState(false);
   const [modalCodigo, setModalCodigo] = useState(false);
-
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
     [],
@@ -136,6 +136,54 @@ export default function ListaProductos() {
       setLista(listaProducto);
     }
   }, [listaProducto, filterStockBajo, filterAlerta]);
+  //logica de impresion
+  const imprimirListaPDF = async () => {
+    const filasHTML = lista
+      .map(
+        (item) => `
+    <tr>
+      <td>${item.nombre_producto || "-"}</td>
+      <td>${item.marca || "-"}</td>
+      <td>$${item.precio_venta || 0}</td>
+    </tr>
+  `,
+      )
+      .join("");
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          @page { size: auto; margin: 10mm; } 
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; }
+          h1 { text-align: center; color: #1e293b; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: center; }
+          th { background-color: #2563eb; color: white; font-weight: bold; }
+          tr:nth-child(even) { background-color: #f8fafc; }
+        </style>
+      </head>
+      <body>
+        <h1>Inventario de Productos</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Marca</th>
+              <th>Precio</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filasHTML}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+    await imprimirPDF(htmlContent);
+  };
 
   return (
     <View style={{ flex: 1, padding: celular ? 10 : 20 }}>
@@ -148,7 +196,7 @@ export default function ListaProductos() {
           <Text style={styles.textoBotonToolbar}>Crear Producto +</Text>
         </Pressable>
         <Link href="/" asChild>
-          <Pressable style={styles.botonToolbar}>
+          <Pressable style={styles.botonToolbar} onPress={imprimirListaPDF}>
             <Text style={styles.textoBotonToolbar}>Imprimir lista</Text>
           </Pressable>
         </Link>
@@ -343,8 +391,8 @@ export default function ListaProductos() {
             <Pressable
               style={styles.botonOpcion}
               onPress={() => {
-                setOpcionesVisible(false); // Cierra este menú
-                setModalEdicionVisible(true); // Abre tu modal de edición
+                setOpcionesVisible(false);
+                setModalEdicionVisible(true);
               }}
             >
               <Text style={styles.textoBotonOpcion}>Editar producto</Text>
