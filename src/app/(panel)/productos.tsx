@@ -18,6 +18,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import Carrito from "../producto/carrito";
 import CodigoProducto from "../producto/codigoProducto";
 import CreacionProducto from "../producto/crearProducto";
 import EditarProducto from "../producto/editarProducto";
@@ -328,6 +329,7 @@ export default function ListaProductos() {
           </ScrollView>
         </View>
       )}
+      <Carrito />
       <Modal
         animationType="fade"
         transparent={true} // Permite ver el fondo oscuro
