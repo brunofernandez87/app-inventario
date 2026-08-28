@@ -1,9 +1,9 @@
 import Barcode from "@kichiyaki/react-native-barcode-generator";
-import * as Print from "expo-print";
 import React from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-export default function codigoProducto({ onClose, producto }) {
+import { imprimirPDF } from "../utils/impresora";
+export default function CodigoProducto({ onClose, producto }) {
   const imprimir_codigos = async () => {
     const nombre = producto?.nombre_producto || "Producto sin nombre";
     const meta = `${producto?.marca || ""} - ${producto?.ubicacion || ""}`;
@@ -63,28 +63,8 @@ export default function codigoProducto({ onClose, producto }) {
         </body>
       </html>
     `;
-    try {
-      if (Platform.OS === "web") {
-        const ventanaImpresion = window.open("", "_blank");
-        ventanaImpresion.document.write(htmlContent);
-        ventanaImpresion.document.close();
-
-        ventanaImpresion.onload = () => {
-          ventanaImpresion.focus();
-          ventanaImpresion.print();
-          ventanaImpresion.close();
-          onClose();
-        };
-      } else {
-        await Print.printAsync({
-          html: htmlContent,
-        });
-        onClose();
-      }
-    } catch (error) {
-      console.error("Error al generar PDF:", error);
-      alert("Hubo un error al intentar imprimir la etiqueta.");
-    }
+    await imprimirPDF(htmlContent);
+    onClose();
   };
   const valorQR = producto?.codigo_alfanumerico || "SIN-CODIGO";
   const valorBarras = producto?.codigo_barras || "0000000000000";
