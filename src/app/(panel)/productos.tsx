@@ -43,6 +43,12 @@ export default function ListaProductos() {
     const filaConAlerta = item.alerta_proyeccion
       ? { backgroundColor: "#fee2e2" }
       : {};
+    const margen =
+      item.costo_compra > 0
+        ? Math.round(
+            ((item.precio_venta - item.costo_compra) / item.costo_compra) * 100,
+          )
+        : 0;
     return (
       <Pressable
         onLongPress={() => abrirOpciones(item)}
@@ -52,43 +58,59 @@ export default function ListaProductos() {
           pressed && { opacity: 0.6 }, // Efecto visual al mantener apretado
         ]}
       >
-        {/* es  para que tenga tipo tabla*/}
-        <Text numberOfLines={1} style={[styles.celda, { width: 120 }]}>
-          {item.codigo_barras}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 130 }]}>
-          {item.codigo_alfanumerico}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 150 }]}>
-          {item.nombre_producto}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
-          {item.marca}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 90 }]}>
-          {item.costo_compra}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 90 }]}>
-          {item.precio_venta}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
-          {item.stock_paquetes}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
-          {item.stock_unidades}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 130 }]}>
-          {item.unidades_por_paquete}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
-          medida
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 130 }]}>
-          {item.bonificacion_paquete}
-        </Text>
-        <Text numberOfLines={1} style={[styles.celda, { width: 100 }]}>
-          {item.ubicacion}
-        </Text>
+        <View style={[styles.celda, { width: 140 }]}>
+          <Text style={styles.textoPrincipal} numberOfLines={1}>
+            {item.codigo_alfanumerico}
+          </Text>
+          <Text style={styles.textoSecundario} numberOfLines={1}>
+            {item.codigo_barras}
+          </Text>
+        </View>
+
+        {/* Producto */}
+        <View style={[styles.celda, { width: 250 }]}>
+          <Text
+            style={[styles.textoPrincipal, { fontSize: 15 }]}
+            numberOfLines={1}
+          >
+            {item.nombre_producto}
+          </Text>
+          <Text style={styles.textoSecundario} numberOfLines={1}>
+            {item.marca} • unidad
+          </Text>
+        </View>
+
+        {/* Ubicación */}
+        <View style={[styles.celda, { width: 120, alignItems: "flex-start" }]}>
+          <View style={styles.badgeUbicacion}>
+            <Text style={styles.textoBadge}>{item.ubicacion || "-"}</Text>
+          </View>
+        </View>
+
+        {/* Costo */}
+        <View style={[styles.celda, { width: 100 }]}>
+          <Text style={styles.textoNormal}>${item.costo_compra}</Text>
+        </View>
+
+        {/* Precio */}
+        <View style={[styles.celda, { width: 100 }]}>
+          <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
+            ${item.precio_venta}
+          </Text>
+        </View>
+
+        {/* Margen */}
+        <View style={[styles.celda, { width: 90 }]}>
+          <Text style={styles.textoVerde}>+{margen}%</Text>
+        </View>
+
+        {/* Stock */}
+        <View style={[styles.celda, { width: 100, alignItems: "center" }]}>
+          <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
+            {item.stock_unidades}
+          </Text>
+          <Text style={styles.textoSecundario}>{item.stock_paquetes} paq.</Text>
+        </View>
       </Pressable>
     );
   }, []);
@@ -169,7 +191,7 @@ export default function ListaProductos() {
           body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; }
           h1 { text-align: center; color: #1e293b; margin-bottom: 20px; }
           table { width: 100%; border-collapse: collapse; font-size: 12px; }
-          th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: center; }
+          th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
           th { background-color: #2563eb; color: white; font-weight: bold; }
           tr:nth-child(even) { background-color: #f8fafc; }
         </style>
@@ -260,78 +282,33 @@ export default function ListaProductos() {
         <View style={{ flex: 1 }}>
           <ScrollView horizontal={true} style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>
-              <View style={styles.fila}>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 120 }]}
-                >
-                  Codigo de barras
+              <View style={styles.encabezadoRow}>
+                <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                  Código
                 </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 130 }]}
-                >
-                  Codigo alfanumerico
+                <Text style={[styles.celdaEncabezado, { width: 250 }]}>
+                  Producto
                 </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 150 }]}
-                >
-                  Nombre
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 100 }]}
-                >
-                  Marca
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 90 }]}
-                >
-                  Costo compra
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 90 }]}
-                >
-                  Precio venta
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 100 }]}
-                >
-                  Stock paquetes
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 100 }]}
-                >
-                  Stock Unidades
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 130 }]}
-                >
-                  Unidades por paquete
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 100 }]}
-                >
-                  Medida
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 130 }]}
-                >
-                  Bonificacion paquete
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.celdaEncabezado, { width: 100 }]}
-                >
+                <Text style={[styles.celdaEncabezado, { width: 120 }]}>
                   Ubicacion
+                </Text>
+                <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                  Costo
+                </Text>
+
+                <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                  Precio
+                </Text>
+                <Text style={[styles.celdaEncabezado, { width: 90 }]}>
+                  Margen
+                </Text>
+                <Text
+                  style={[
+                    styles.celdaEncabezado,
+                    { width: 100, textAlign: "center" },
+                  ]}
+                >
+                  Stock
                 </Text>
               </View>
               <FlatList
@@ -502,29 +479,62 @@ const styles = StyleSheet.create({
     maxHeight: "95%",
     padding: 5, // Un poco menos de espacio desperdiciado en los bordes para el celu
   },
+  encabezadoRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    backgroundColor: "#ffffff",
+  },
+  celdaEncabezado: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748b",
+    paddingHorizontal: 5,
+  },
   fila: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderLeftWidth: 1, // Le pone una línea al borde izquierdo de la tabla
-    borderColor: "#ccc",
-  },
-  celdaEncabezado: {
-    fontSize: 12,
-    fontWeight: "bold",
-    borderRightWidth: 1, // La línea vertical que separa las columnas
-    borderColor: "#ccc",
-    paddingVertical: 10,
-    paddingHorizontal: 4, // Para que la letra no se pegue a la línea
-    textAlign: "center",
-    backgroundColor: "#eee",
+    borderBottomColor: "#f1f5f9",
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
   },
   celda: {
+    paddingHorizontal: 5,
+    justifyContent: "center",
+  },
+  textoPrincipal: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1e293b",
+    marginBottom: 2,
+  },
+  textoSecundario: {
+    fontSize: 13,
+    color: "#94a3b8",
+  },
+  textoNormal: {
+    fontSize: 14,
+    color: "#475569",
+  },
+  textoVerde: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#10b981", // Verde característico del margen
+  },
+  badgeUbicacion: {
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  textoBadge: {
     fontSize: 12,
-    borderRightWidth: 1, // La línea vertical que separa las columnas
-    borderColor: "#ccc",
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    textAlign: "center", // Centra el texto como en Excel
+    fontWeight: "600",
+    color: "#64748b",
   },
   toolbar: {
     flexDirection: "row", // Los pone uno al lado del otro
