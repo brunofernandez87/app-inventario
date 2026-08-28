@@ -154,6 +154,7 @@ export default function ReportesScreen() {
       ...historialGraficos.transacciones,
     ].reverse();
     const gananciasInvertidas = [...historialGraficos.ganancias].reverse();
+    const isWeb = Platform.OS === "web";
 
     return (
       <View style={styles.tabContent}>
@@ -231,7 +232,7 @@ export default function ReportesScreen() {
               chartConfig={chartConfigLineas}
               bezier
               fromZero={true}
-              withDots={Platform.OS !== "web"}
+              withDots={!isWeb}
               style={{ borderRadius: 12, marginTop: 10 }}
             />
           </View>
@@ -244,92 +245,119 @@ export default function ReportesScreen() {
               Historial numérico de los últimos 6 meses
             </Text>
           </View>
-          <View style={styles.tablaRowHead}>
-            <Text style={[styles.colHead, { flex: 1 }]}>Mes</Text>
-            <Text style={[styles.colHead, { flex: 1, textAlign: "center" }]}>
-              Transacciones
-            </Text>
-            <Text style={[styles.colHead, { flex: 1, textAlign: "right" }]}>
-              Ingresos Totales
-            </Text>
-          </View>
-          {labelsInvertidos.map((mes, index) => (
-            <View
-              key={index}
-              style={[
-                styles.tablaRow,
-                index === labelsInvertidos.length - 1 && {
-                  borderBottomWidth: 0,
-                },
-              ]}
-            >
-              <Text
-                style={[styles.rowTxtBase, { flex: 1, fontWeight: "bold" }]}
-              >
-                {mes} {index === 0 && "(Actual)"}
-              </Text>
-              <Text
-                style={[styles.rowTxtBase, { flex: 1, textAlign: "center" }]}
-              >
-                {transaccionesInvertidas[index]} ventas
-              </Text>
-              <Text
+          <View style={{ paddingTop: 10 }}>
+            {labelsInvertidos.map((mes, index) => (
+              <View
+                key={index}
                 style={[
-                  styles.rowTxtBase,
-                  {
-                    flex: 1,
-                    textAlign: "right",
-                    color: "#16a34a",
-                    fontWeight: "bold",
+                  styles.cardMobile,
+                  isWeb && {
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 14,
                   },
                 ]}
               >
-                $ {gananciasInvertidas[index].toLocaleString("es-AR")}
-              </Text>
-            </View>
-          ))}
+                {isWeb ? (
+                  <>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text
+                        style={[
+                          styles.rowTxtBase,
+                          { fontWeight: "bold", fontSize: 16 },
+                        ]}
+                      >
+                        {mes} {index === 0 && "(Actual)"}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, alignItems: "center" }}>
+                      <Text style={styles.rowTxtBase}>
+                        Transacciones:{" "}
+                        <Text style={{ fontWeight: "bold" }}>
+                          {transaccionesInvertidas[index]}
+                        </Text>
+                      </Text>
+                    </View>
+                    <View
+                      style={{
+                        flex: 1,
+                        alignItems: "flex-end",
+                        paddingLeft: 10,
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.rowTxtBase,
+                          {
+                            color: "#16a34a",
+                            fontWeight: "bold",
+                            fontSize: 16,
+                          },
+                        ]}
+                      >
+                        Ingresos: ${" "}
+                        {gananciasInvertidas[index].toLocaleString("es-AR")}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.cardRowMobile}>
+                      <Text
+                        style={[
+                          styles.rowTxtBase,
+                          { fontWeight: "bold", fontSize: 16 },
+                        ]}
+                      >
+                        {mes} {index === 0 && "(Actual)"}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.rowTxtBase,
+                          {
+                            color: "#16a34a",
+                            fontWeight: "bold",
+                            fontSize: 16,
+                          },
+                        ]}
+                      >
+                        $ {gananciasInvertidas[index].toLocaleString("es-AR")}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.cardRowMobile,
+                        { marginTop: 4, marginBottom: 0 },
+                      ]}
+                    >
+                      <Text style={styles.rowTxtSub}>
+                        {transaccionesInvertidas[index]} transacciones
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            ))}
+          </View>
         </View>
       </View>
     );
   };
 
-  const renderTabProyecciones = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.tableCard}>
-        <View style={styles.tableCardHeader}>
-          <Text style={styles.tableCardTitle}>Proyección por Producto</Text>
-          <Text style={styles.tableCardSub}>
-            Calculado en base al promedio histórico de ventas de los últimos 6
-            meses
-          </Text>
-        </View>
+  const renderTabProyecciones = () => {
+    const isWeb = Platform.OS === "web";
+    return (
+      <View style={styles.tabContent}>
+        <View style={styles.tableCard}>
+          <View style={styles.tableCardHeader}>
+            <Text style={styles.tableCardTitle}>Proyección por Producto</Text>
+            <Text style={styles.tableCardSub}>
+              Calculado en base al promedio histórico de ventas de los últimos 6
+              meses
+            </Text>
+          </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={true}
-          contentContainerStyle={{ minWidth: "100%" }}
-        >
-          <View style={{ minWidth: 700, width: "100%", paddingBottom: 10 }}>
-            <View style={styles.tablaRowHead}>
-              <Text style={[styles.colHead, { flex: 3 }]}>Producto</Text>
-              <Text style={[styles.colHead, { flex: 1, textAlign: "center" }]}>
-                Stock actual
-              </Text>
-              <Text
-                style={[styles.colHead, { flex: 1.5, textAlign: "center" }]}
-              >
-                Prom. mensual
-              </Text>
-              <Text
-                style={[styles.colHead, { flex: 1.5, textAlign: "center" }]}
-              >
-                Meses restantes
-              </Text>
-              <Text style={[styles.colHead, { flex: 1, textAlign: "center" }]}>
-                Estado
-              </Text>
-            </View>
-
+          <View style={{ paddingTop: 10, width: "100%" }}>
             {proyecciones.length === 0 ? (
               <Text
                 style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}
@@ -337,143 +365,200 @@ export default function ReportesScreen() {
                 No hay productos registrados.
               </Text>
             ) : (
-              proyecciones.map((prod, index) => (
+              proyecciones.map((prod) => (
                 <View
                   key={prod.id}
                   style={[
-                    styles.tablaRow,
-                    index === proyecciones.length - 1 && {
-                      borderBottomWidth: 0,
+                    styles.cardMobile,
+                    isWeb && {
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 14,
                     },
                   ]}
                 >
-                  <View style={{ flex: 3 }}>
-                    <Text style={styles.rowTxtBase}>{prod.nombre}</Text>
-                    <Text style={styles.rowTxtSub}>{prod.codigo}</Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.rowTxtBase,
-                      { flex: 1, textAlign: "center", fontWeight: "500" },
-                    ]}
-                  >
-                    {prod.stock}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.rowTxtBase,
-                      { flex: 1.5, textAlign: "center", color: "#64748b" },
-                    ]}
-                  >
-                    {prod.prom}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.rowTxtBase,
-                      { flex: 1.5, textAlign: "center", fontWeight: "500" },
-                    ]}
-                  >
-                    {prod.meses}
-                  </Text>
-                  <View style={{ flex: 1, alignItems: "center" }}>
-                    <View
-                      style={
-                        prod.estado === "OK"
-                          ? styles.badgeOk
-                          : prod.estado === "Bajo"
-                            ? styles.badgeBajo
-                            : styles.badgeSinHistorial
-                      }
-                    >
-                      <Text
-                        style={
-                          prod.estado === "OK"
-                            ? styles.badgeTxtOk
-                            : prod.estado === "Bajo"
-                              ? styles.badgeTxtBajo
-                              : styles.badgeTxtSinHistorial
-                        }
-                      >
-                        {prod.estado}
+                  {isWeb ? (
+                    <>
+                      <View style={{ flex: 2, paddingRight: 10 }}>
+                        <Text
+                          style={[
+                            styles.rowTxtBase,
+                            { fontWeight: "bold", fontSize: 16 },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {prod.nombre}
+                        </Text>
+                        <Text style={styles.rowTxtSub}>{prod.codigo}</Text>
+                      </View>
+                      <View style={{ flex: 1, alignItems: "center" }}>
+                        <Text style={styles.rowTxtBase}>
+                          Stock:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            {prod.stock} uds.
+                          </Text>
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, alignItems: "center" }}>
+                        <Text style={styles.rowTxtBase}>
+                          Promedio:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            {prod.prom}
+                          </Text>
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, alignItems: "center" }}>
+                        <Text style={styles.rowTxtBase}>
+                          Restan:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            {prod.meses}
+                          </Text>
+                        </Text>
+                      </View>
+                      <View style={{ flex: 0.8, alignItems: "flex-end" }}>
+                        <View
+                          style={
+                            prod.estado === "OK"
+                              ? styles.badgeOk
+                              : prod.estado === "Bajo"
+                                ? styles.badgeBajo
+                                : styles.badgeSinHistorial
+                          }
+                        >
+                          <Text
+                            style={
+                              prod.estado === "OK"
+                                ? styles.badgeTxtOk
+                                : prod.estado === "Bajo"
+                                  ? styles.badgeTxtBajo
+                                  : styles.badgeTxtSinHistorial
+                            }
+                          >
+                            {prod.estado}
+                          </Text>
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.cardRowMobile}>
+                        <Text
+                          style={[
+                            styles.rowTxtBase,
+                            {
+                              fontWeight: "bold",
+                              fontSize: 16,
+                              flex: 1,
+                              marginRight: 8,
+                            },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {prod.nombre}
+                        </Text>
+                        <View
+                          style={
+                            prod.estado === "OK"
+                              ? styles.badgeOk
+                              : prod.estado === "Bajo"
+                                ? styles.badgeBajo
+                                : styles.badgeSinHistorial
+                          }
+                        >
+                          <Text
+                            style={
+                              prod.estado === "OK"
+                                ? styles.badgeTxtOk
+                                : prod.estado === "Bajo"
+                                  ? styles.badgeTxtBajo
+                                  : styles.badgeTxtSinHistorial
+                            }
+                          >
+                            {prod.estado}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.rowTxtSub, { marginBottom: 8 }]}>
+                        {prod.codigo}
                       </Text>
-                    </View>
-                  </View>
+                      <View style={styles.cardRowMobile}>
+                        <Text style={styles.rowTxtBase}>
+                          Stock:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            {prod.stock} uds.
+                          </Text>
+                        </Text>
+                        <Text style={styles.rowTxtBase}>
+                          Restan:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            {prod.meses}
+                          </Text>
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.cardRowMobile,
+                          { marginTop: 4, marginBottom: 0 },
+                        ]}
+                      >
+                        <Text style={styles.rowTxtBase}>
+                          Promedio:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            {prod.prom}
+                          </Text>
+                        </Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               ))
             )}
           </View>
-        </ScrollView>
-      </View>
-    </View>
-  );
-
-  const renderTabRentabilidad = () => (
-    <View style={styles.tabContent}>
-      <View
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 16,
-          marginBottom: 20,
-        }}
-      >
-        <View style={[styles.card, { flex: 1, minWidth: 200 }]}>
-          <Text style={styles.cardTitulo}>VALOR STOCK A COSTO</Text>
-          <Text style={styles.cardValor}>
-            $ {resumenRentabilidad.totalCosto.toLocaleString("es-AR")}
-          </Text>
-        </View>
-        <View style={[styles.card, { flex: 1, minWidth: 200 }]}>
-          <Text style={styles.cardTitulo}>VALOR STOCK A PRECIO VENTA</Text>
-          <Text style={styles.cardValor}>
-            $ {resumenRentabilidad.totalPrecio.toLocaleString("es-AR")}
-          </Text>
-        </View>
-        <View style={[styles.cardPotencial, { flex: 1, minWidth: 200 }]}>
-          <Text style={[styles.cardTitulo, { color: "#15803d" }]}>
-            GANANCIA POTENCIAL EN STOCK
-          </Text>
-          <Text style={[styles.cardValor, { color: "#16a34a" }]}>
-            $ {resumenRentabilidad.gananciaPotencial.toLocaleString("es-AR")}
-          </Text>
         </View>
       </View>
+    );
+  };
 
-      <View style={styles.tableCard}>
-        <View style={styles.tableCardHeader}>
-          <Text style={styles.tableCardTitle}>Rentabilidad por Producto</Text>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={true}
-          contentContainerStyle={{ minWidth: "100%" }}
+  const renderTabRentabilidad = () => {
+    const isWeb = Platform.OS === "web";
+    return (
+      <View style={styles.tabContent}>
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 16,
+            marginBottom: 20,
+          }}
         >
-          <View style={{ minWidth: 800, width: "100%", paddingBottom: 10 }}>
-            <View style={styles.tablaRowHead}>
-              <Text style={[styles.colHead, { flex: 3 }]}>Producto</Text>
-              <Text style={[styles.colHead, { flex: 1, textAlign: "center" }]}>
-                Costo
-              </Text>
-              <Text style={[styles.colHead, { flex: 1, textAlign: "center" }]}>
-                Precio
-              </Text>
-              <Text
-                style={[styles.colHead, { flex: 1.5, textAlign: "center" }]}
-              >
-                Ganancia/ud
-              </Text>
-              <Text style={[styles.colHead, { flex: 1, textAlign: "center" }]}>
-                Margen
-              </Text>
-              <Text style={[styles.colHead, { flex: 1, textAlign: "center" }]}>
-                Stock
-              </Text>
-              <Text style={[styles.colHead, { flex: 1.5, textAlign: "right" }]}>
-                Val. costo
-              </Text>
-            </View>
+          <View style={[styles.card, { flex: 1, minWidth: 200 }]}>
+            <Text style={styles.cardTitulo}>VALOR STOCK A COSTO</Text>
+            <Text style={styles.cardValor}>
+              $ {resumenRentabilidad.totalCosto.toLocaleString("es-AR")}
+            </Text>
+          </View>
+          <View style={[styles.card, { flex: 1, minWidth: 200 }]}>
+            <Text style={styles.cardTitulo}>VALOR STOCK A PRECIO VENTA</Text>
+            <Text style={styles.cardValor}>
+              $ {resumenRentabilidad.totalPrecio.toLocaleString("es-AR")}
+            </Text>
+          </View>
+          <View style={[styles.cardPotencial, { flex: 1, minWidth: 200 }]}>
+            <Text style={[styles.cardTitulo, { color: "#15803d" }]}>
+              GANANCIA POTENCIAL EN STOCK
+            </Text>
+            <Text style={[styles.cardValor, { color: "#16a34a" }]}>
+              $ {resumenRentabilidad.gananciaPotencial.toLocaleString("es-AR")}
+            </Text>
+          </View>
+        </View>
 
+        <View style={styles.tableCard}>
+          <View style={styles.tableCardHeader}>
+            <Text style={styles.tableCardTitle}>Rentabilidad por Producto</Text>
+          </View>
+
+          <View style={{ paddingTop: 10, width: "100%" }}>
             {rentabilidad.length === 0 ? (
               <Text
                 style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}
@@ -481,86 +566,200 @@ export default function ReportesScreen() {
                 No hay productos registrados.
               </Text>
             ) : (
-              rentabilidad.map((prod, index) => (
+              rentabilidad.map((prod) => (
                 <View
                   key={prod.id}
                   style={[
-                    styles.tablaRow,
-                    index === rentabilidad.length - 1 && {
-                      borderBottomWidth: 0,
+                    styles.cardMobile,
+                    isWeb && {
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 14,
                     },
                   ]}
                 >
-                  <View style={{ flex: 3 }}>
-                    <Text style={styles.rowTxtBase}>{prod.nombre}</Text>
-                    <Text style={styles.rowTxtSub}>{prod.codigoMarca}</Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.rowTxtBase,
-                      { flex: 1, textAlign: "center" },
-                    ]}
-                  >
-                    $ {prod.costo.toLocaleString("es-AR")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.rowTxtBase,
-                      { flex: 1, textAlign: "center", fontWeight: "bold" },
-                    ]}
-                  >
-                    $ {prod.precio.toLocaleString("es-AR")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.rowTxtBase,
-                      {
-                        flex: 1.5,
-                        textAlign: "center",
-                        color: "#16a34a",
-                        fontWeight: "bold",
-                      },
-                    ]}
-                  >
-                    + $ {prod.ganancia.toLocaleString("es-AR")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.rowTxtBase,
-                      {
-                        flex: 1,
-                        textAlign: "center",
-                        color: "#16a34a",
-                        fontWeight: "bold",
-                      },
-                    ]}
-                  >
-                    {prod.margen}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.rowTxtBase,
-                      { flex: 1, textAlign: "center", color: "#64748b" },
-                    ]}
-                  >
-                    {prod.stock}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.rowTxtBase,
-                      { flex: 1.5, textAlign: "right" },
-                    ]}
-                  >
-                    $ {prod.valCosto.toLocaleString("es-AR")}
-                  </Text>
+                  {isWeb ? (
+                    <>
+                      <View
+                        style={{
+                          flex: 2,
+                          paddingRight: 10,
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.rowTxtBase,
+                            { fontWeight: "bold", fontSize: 16 },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {prod.nombre}
+                        </Text>
+                        <Text style={styles.rowTxtSub}>{prod.codigoMarca}</Text>
+                      </View>
+                      <View
+                        style={{
+                          flex: 1,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text style={styles.rowTxtSub}>Costo</Text>
+                        <Text
+                          style={[styles.rowTxtBase, { fontWeight: "bold" }]}
+                        >
+                          $ {prod.costo.toLocaleString("es-AR")}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          flex: 1,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text style={styles.rowTxtSub}>Precio Venta</Text>
+                        <Text
+                          style={[styles.rowTxtBase, { fontWeight: "bold" }]}
+                        >
+                          $ {prod.precio.toLocaleString("es-AR")}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          flex: 1,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text style={styles.rowTxtSub}>Ganancia ud.</Text>
+                        <Text
+                          style={[
+                            styles.rowTxtBase,
+                            { fontWeight: "bold", color: "#16a34a" },
+                          ]}
+                        >
+                          + $ {prod.ganancia.toLocaleString("es-AR")}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          flex: 0.8,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <View style={styles.badgeOk}>
+                          <Text style={styles.badgeTxtOk}>{prod.margen}</Text>
+                        </View>
+                      </View>
+                      <View
+                        style={{
+                          flex: 1,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text style={styles.rowTxtSub}>Stock</Text>
+                        <Text
+                          style={[styles.rowTxtBase, { fontWeight: "bold" }]}
+                        >
+                          {prod.stock} uds.
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          flex: 1.2,
+                          alignItems: "flex-end",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text style={styles.rowTxtSub}>Val. Costo total</Text>
+                        <Text
+                          style={[styles.rowTxtBase, { fontWeight: "bold" }]}
+                        >
+                          $ {prod.valCosto.toLocaleString("es-AR")}
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.cardRowMobile}>
+                        <Text
+                          style={[
+                            styles.rowTxtBase,
+                            {
+                              fontWeight: "bold",
+                              fontSize: 16,
+                              flex: 1,
+                              marginRight: 8,
+                            },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {prod.nombre}
+                        </Text>
+                        <View style={styles.badgeOk}>
+                          <Text style={styles.badgeTxtOk}>{prod.margen}</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.rowTxtSub, { marginBottom: 12 }]}>
+                        {prod.codigoMarca}
+                      </Text>
+
+                      <View style={styles.cardRowMobile}>
+                        <Text style={styles.rowTxtBase}>
+                          Costo:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            $ {prod.costo.toLocaleString("es-AR")}
+                          </Text>
+                        </Text>
+                        <Text style={styles.rowTxtBase}>
+                          Precio:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            $ {prod.precio.toLocaleString("es-AR")}
+                          </Text>
+                        </Text>
+                      </View>
+                      <View style={[styles.cardRowMobile, { marginTop: 8 }]}>
+                        <Text style={styles.rowTxtBase}>
+                          Stock:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            {prod.stock} uds.
+                          </Text>
+                        </Text>
+                        <Text style={styles.rowTxtBase}>
+                          Valor total:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            $ {prod.valCosto.toLocaleString("es-AR")}
+                          </Text>
+                        </Text>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.cardRowMobile,
+                          { marginTop: 8, marginBottom: 0 },
+                        ]}
+                      >
+                        <Text style={[styles.rowTxtBase, { color: "#16a34a" }]}>
+                          Ganancia/ud:{" "}
+                          <Text style={{ fontWeight: "bold" }}>
+                            + $ {prod.ganancia.toLocaleString("es-AR")}
+                          </Text>
+                        </Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               ))
             )}
           </View>
-        </ScrollView>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -699,44 +898,44 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
     padding: 16,
   },
-  tableCardHeader: { marginBottom: 20 },
+  tableCardHeader: { marginBottom: 10 },
   tableCardTitle: { fontSize: 18, fontWeight: "bold", color: "#0f172a" },
   tableCardSub: { fontSize: 13, color: "#64748b", marginTop: 4 },
-  tablaRowHead: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-    paddingBottom: 12,
+
+  cardMobile: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  colHead: { fontSize: 12, fontWeight: "bold", color: "#64748b" },
-  tablaRow: {
+  cardRowMobile: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f8fafc",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   rowTxtBase: { fontSize: 14, color: "#334155" },
-  rowTxtSub: { fontSize: 12, color: "#94a3b8", marginTop: 2 },
+  rowTxtSub: { fontSize: 13, color: "#94a3b8", marginTop: 2 },
+
   badgeOk: {
     backgroundColor: "#d1fae5",
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
   },
   badgeTxtOk: { color: "#047857", fontSize: 12, fontWeight: "bold" },
   badgeBajo: {
     backgroundColor: "#fef3c7",
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
   },
   badgeTxtBajo: { color: "#b45309", fontSize: 12, fontWeight: "bold" },
   badgeSinHistorial: {
     backgroundColor: "#f1f5f9",
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
   },
   badgeTxtSinHistorial: { color: "#94a3b8", fontSize: 12, fontWeight: "bold" },

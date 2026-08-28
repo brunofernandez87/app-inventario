@@ -14,10 +14,7 @@ export const obtenerVentasRevendedores = async (id_empresa: number) => {
     const { data: stockVendido, error: errStock } = await supabase
       .from("stock_revendedor")
       .select(
-        `
-        *,
-        producto:id_producto ( nombre_producto, precio_venta, codigo_barras )
-      `,
+        `*, producto:id_producto ( nombre_producto, precio_venta, codigo_barras )`,
       )
       .eq("estado", "Vendido");
 
@@ -68,12 +65,7 @@ export const obtenerResumenMensual = async (id_empresa: number) => {
 
     const { data, error } = await supabase
       .from("movimiento_stock")
-      .select(
-        `
-        cantidad,
-        producto:id_producto ( precio_venta )
-      `,
-      )
+      .select(`cantidad, producto:id_producto ( precio_venta )`)
       .eq("id_empresa", id_empresa)
       .eq("tipo_movimiento", "SALIDA")
       .ilike("motivo", "%Venta%")
@@ -143,11 +135,7 @@ export const obtenerHistorialGraficos = async (id_empresa: number) => {
     const { data, error } = await supabase
       .from("movimiento_stock")
       .select(
-        `
-        cantidad,
-        fecha_movimiento,
-        producto:id_producto ( precio_venta )
-      `,
+        `cantidad, fecha_movimiento, producto:id_producto ( precio_venta )`,
       )
       .eq("id_empresa", id_empresa)
       .eq("tipo_movimiento", "SALIDA")
@@ -185,53 +173,34 @@ export const obtenerHistorialGraficos = async (id_empresa: number) => {
 
 export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
   try {
-    const { data: productos, error: errProd } = await supabase
-      .from("producto")
+    const { data: productosView, error: errProd } = await supabase
+      .from("vista_productos_con_proyeccion")
       .select("*")
       .eq("id_empresa", id_empresa);
 
     if (errProd) throw errProd;
-    const fechaInicio = new Date();
-    fechaInicio.setMonth(fechaInicio.getMonth() - 6);
-
-    const { data: ventas, error: errVentas } = await supabase
-      .from("movimiento_stock")
-      .select("id_producto, cantidad")
-      .eq("id_empresa", id_empresa)
-      .eq("tipo_movimiento", "SALIDA")
-      .ilike("motivo", "%Venta%")
-      .gte("fecha_movimiento", fechaInicio.toISOString());
-
-    if (errVentas) throw errVentas;
-    const ventasPorProducto: Record<number, number> = {};
-    ventas?.forEach((v) => {
-      if (!ventasPorProducto[v.id_producto])
-        ventasPorProducto[v.id_producto] = 0;
-      ventasPorProducto[v.id_producto] += v.cantidad || 0;
-    });
-
     const proyecciones: any[] = [];
     const rentabilidad: any[] = [];
     let totalCosto = 0;
     let totalPrecio = 0;
 
-    productos?.forEach((prod) => {
-      const stock = prod.stock_unidades || 0;
-      const ventasSeisMeses = ventasPorProducto[prod.id_producto] || 0;
-      const promMensual = ventasSeisMeses / 6;
+    productosView?.forEach((prod) => {
+      const stock = Number(prod.stock_unidades) || 0;
+      const promMensual = Number(prod.ventas_promedio_mensual) || 0;
+
       let mesesRestantes = "-";
       let estado = "Sin historial";
 
       if (promMensual > 0) {
         const meses = Math.round(stock / promMensual);
         mesesRestantes = `${meses} meses`;
-        estado = meses > 2 ? "OK" : "Bajo";
+        estado = prod.alerta_proyeccion ? "Bajo" : "OK";
       }
 
       proyecciones.push({
         id: prod.id_producto,
         nombre: prod.nombre_producto,
-        codigo: prod.codigo_barras || "S/C",
+        codigo: prod.codigo_barras || prod.codigo_alfanumerico || "S/C",
         stock: stock,
         prom:
           promMensual > 0 ? `~${Math.round(promMensual)}/mes` : "Sin ventas",
@@ -239,8 +208,8 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
         estado: estado,
       });
 
-      const costo = (prod as any).precio_costo || 0;
-      const precio = prod.precio_venta || 0;
+      const costo = Number(prod.costo_compra) || 0;
+      const precio = Number(prod.precio_venta) || 0;
       const ganancia = precio - costo;
       const margen = costo > 0 ? Math.round((ganancia / costo) * 100) : 100;
 
@@ -253,7 +222,7 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
       rentabilidad.push({
         id: prod.id_producto,
         nombre: prod.nombre_producto,
-        codigoMarca: prod.codigo_barras || "S/C",
+        codigoMarca: prod.codigo_barras || prod.codigo_alfanumerico || "S/C",
         costo: costo,
         precio: precio,
         ganancia: ganancia,

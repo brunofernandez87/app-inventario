@@ -492,118 +492,140 @@ export default function StockRevendedorScreen() {
 
   const renderHistorial = () => {
     const isWeb = Platform.OS === "web";
-    const TablaHistorial = (
-      <View style={{ minWidth: isWeb ? "100%" : 600, paddingBottom: 10 }}>
-        <View style={styles.tableHeaderRow}>
-          <Text style={[styles.tableCol, styles.tableHeadTxt, { flex: 1 }]}>
-            Fecha
-          </Text>
-          <Text style={[styles.tableCol, styles.tableHeadTxt, { flex: 1.5 }]}>
-            Revendedor
-          </Text>
-          <Text style={[styles.tableCol, styles.tableHeadTxt, { flex: 2 }]}>
-            Producto
-          </Text>
-          <Text
-            style={[
-              styles.tableCol,
-              styles.tableHeadTxt,
-              { flex: 0.8, textAlign: "center" },
-            ]}
-          >
-            Cant.
-          </Text>
-          <Text
-            style={[
-              styles.tableCol,
-              styles.tableHeadTxt,
-              { flex: 1, textAlign: "center" },
-            ]}
-          >
-            Estado
-          </Text>
-        </View>
-        <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 350 }}>
-          {stock.length === 0 ? (
-            <Text style={styles.emptyTxt}>No hay movimientos.</Text>
-          ) : (
-            stock.map((fila, index) => {
-              const rev = usuarios.find(
-                (u) => u.id_usuario === fila.id_usuario,
-              );
-              let bStyle = styles.badgeDefault,
-                bTxtStyle = styles.badgeTxtDefault;
-              if (fila.estado === "En poder") {
-                bStyle = styles.badgeEnPoder;
-                bTxtStyle = styles.badgeTxtEnPoder;
-              }
-              if (fila.estado === "Vendido") {
-                bStyle = styles.badgeVendido;
-                bTxtStyle = styles.badgeTxtVendido;
-              }
-              return (
-                <View
-                  key={fila.id_registro}
-                  style={[
-                    styles.tableRow,
-                    index === stock.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                >
-                  <Text
-                    style={[styles.tableCol, styles.tableRowTxt, { flex: 1 }]}
-                  >
-                    {(fila as any).created_at
-                      ? new Date((fila as any).created_at).toLocaleDateString(
-                          "es-AR",
-                        )
-                      : "Reciente"}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.tableCol,
-                      styles.tableRowTxt,
-                      { flex: 1.5, fontWeight: "bold" },
-                    ]}
-                  >
-                    {rev ? rev.nombre_usuario : "S/C"}
-                  </Text>
-                  <Text
-                    style={[styles.tableCol, styles.tableRowTxt, { flex: 2 }]}
-                  >
-                    {(fila as any).producto?.nombre_producto || "S/C"}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.tableCol,
-                      styles.tableRowTxt,
-                      { flex: 0.8, textAlign: "center", fontWeight: "bold" },
-                    ]}
-                  >
-                    {fila.cantidad}
-                  </Text>
-                  <View
-                    style={[styles.tableCol, { flex: 1, alignItems: "center" }]}
-                  >
-                    <View style={bStyle}>
-                      <Text style={bTxtStyle}>{fila.estado}</Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
-      </View>
-    );
-
     return (
       <View style={styles.historyCard}>
         <Text style={styles.historyMainTitle}>Historial de Asignaciones</Text>
-        {isWeb ? (
-          TablaHistorial
+
+        {stock.length === 0 ? (
+          <Text style={styles.emptyTxt}>No hay movimientos.</Text>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-            {TablaHistorial}
+          <ScrollView
+            nestedScrollEnabled={true}
+            style={{ maxHeight: isWeb ? 500 : undefined }}
+          >
+            <View style={{ paddingTop: 10, width: "100%" }}>
+              {stock.map((fila) => {
+                const rev = usuarios.find(
+                  (u) => u.id_usuario === fila.id_usuario,
+                );
+                let bStyle = styles.badgeDefault,
+                  bTxtStyle = styles.badgeTxtDefault;
+                if (fila.estado === "En poder") {
+                  bStyle = styles.badgeEnPoder;
+                  bTxtStyle = styles.badgeTxtEnPoder;
+                }
+                if (fila.estado === "Vendido") {
+                  bStyle = styles.badgeVendido;
+                  bTxtStyle = styles.badgeTxtVendido;
+                }
+
+                const fechaStr = (fila as any).created_at
+                  ? new Date((fila as any).created_at).toLocaleDateString(
+                      "es-AR",
+                    )
+                  : "Reciente";
+                const nombreRev = rev ? rev.nombre_usuario : "S/C";
+                const nombreProd =
+                  (fila as any).producto?.nombre_producto || "S/C";
+
+                return (
+                  <View
+                    key={fila.id_registro}
+                    style={[
+                      styles.cardMobile,
+                      isWeb && {
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 14,
+                      },
+                    ]}
+                  >
+                    {isWeb ? (
+                      <>
+                        <View
+                          style={{
+                            flex: 1,
+                            paddingRight: 10,
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Text style={[styles.dateMobile, { marginTop: 0 }]}>
+                            {fechaStr} •{" "}
+                            <Text style={{ fontWeight: "bold" }}>
+                              Rev: {nombreRev}
+                            </Text>
+                          </Text>
+                        </View>
+                        <View
+                          style={{
+                            flex: 1.5,
+                            paddingHorizontal: 10,
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Text
+                            style={[styles.productNameMobile, { marginTop: 0 }]}
+                          >
+                            {nombreProd}
+                          </Text>
+                        </View>
+                        <View
+                          style={{
+                            flex: 1,
+                            alignItems: "flex-end",
+                            justifyContent: "center",
+                            paddingHorizontal: 10,
+                          }}
+                        >
+                          <Text style={styles.quantityMobile}>
+                            Cantidad: {fila.cantidad} uds.
+                          </Text>
+                        </View>
+                        <View
+                          style={{
+                            flex: 0.8,
+                            alignItems: "flex-end",
+                            justifyContent: "center",
+                            paddingLeft: 10,
+                          }}
+                        >
+                          <View style={bStyle}>
+                            <Text style={bTxtStyle}>{fila.estado}</Text>
+                          </View>
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <View style={styles.cardRowMobile}>
+                          <Text style={styles.dateMobile}>
+                            {fechaStr} •{" "}
+                            <Text style={{ fontWeight: "bold" }}>
+                              Rev: {nombreRev}
+                            </Text>
+                          </Text>
+                          <View style={bStyle}>
+                            <Text style={bTxtStyle}>{fila.estado}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.productNameMobile}>
+                          {nombreProd}
+                        </Text>
+                        <View
+                          style={[
+                            styles.cardRowMobile,
+                            { marginTop: 8, marginBottom: 0 },
+                          ]}
+                        >
+                          <Text style={styles.quantityMobile}>
+                            Cantidad: {fila.cantidad} uds.
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
           </ScrollView>
         )}
       </View>
@@ -822,8 +844,12 @@ export default function StockRevendedorScreen() {
                     <TextInput
                       style={styles.modalInputText}
                       keyboardType="numeric"
+                      placeholder="Ej: 10"
                       value={revDescuento}
-                      onChangeText={setRevDescuento}
+                      onChangeText={(texto) => {
+                        setRevDescuento(texto);
+                        if (texto.length > 0) setRevBonificacion("");
+                      }}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -831,8 +857,12 @@ export default function StockRevendedorScreen() {
                     <TextInput
                       style={styles.modalInputText}
                       keyboardType="numeric"
+                      placeholder="Ej: 15"
                       value={revBonificacion}
-                      onChangeText={setRevBonificacion}
+                      onChangeText={(texto) => {
+                        setRevBonificacion(texto);
+                        if (texto.length > 0) setRevDescuento("");
+                      }}
                     />
                   </View>
                 </View>
@@ -1291,23 +1321,6 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     marginBottom: 20,
   },
-  tableHeaderRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-    paddingBottom: 12,
-    marginBottom: 12,
-  },
-  tableRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-    paddingVertical: 14,
-  },
-  tableCol: { justifyContent: "center", paddingRight: 10 },
-  tableHeadTxt: { color: "#64748b", fontSize: 13, fontWeight: "600" },
-  tableRowTxt: { color: "#334155", fontSize: 14 },
   badgeDefault: {
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -1336,7 +1349,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#f1f5f9",
   },
   badgeTxtDevuelto: { color: "#64748b", fontWeight: "bold", fontSize: 12 },
-  // FONDO OSCURECIDO PARA MODALES (DIMMED)
+  cardMobile: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  cardRowMobile: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  dateMobile: { fontSize: 13, color: "#64748b", marginTop: 2 },
+  productNameMobile: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0f172a",
+    marginTop: 6,
+  },
+  quantityMobile: { fontSize: 14, fontWeight: "600", color: "#334155" },
+
   modalOverlay: {
     flex: 1,
     justifyContent: "center",

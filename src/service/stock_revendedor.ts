@@ -11,6 +11,7 @@ export const obtenerRevendedoresYStock = async (id_empresa: number) => {
       .order("nombre_usuario", { ascending: true });
 
     if (errUsuarios) throw errUsuarios;
+
     const { data: stock, error: errStock } = await supabase
       .from("stock_revendedor")
       .select(
@@ -78,12 +79,19 @@ export const procesarDevolucion = async (
         .eq("id_producto", idProducto);
     }
 
+    const { data: user } = await supabase
+      .from("usuario")
+      .select("nombre_usuario")
+      .eq("id_usuario", registro.id_usuario)
+      .single();
+    const nombreRev = user?.nombre_usuario || "revendedor";
+
     await crearMovimientoStock({
       id_empresa: id_empresa,
       id_producto: idProducto,
       tipo_movimiento: "ENTRADA",
       cantidad: cantidad_devuelta,
-      motivo: "Devolución de revendedor/camioneta",
+      motivo: `Devolución de: ${nombreRev}`,
     });
 
     return true;
@@ -125,12 +133,19 @@ export const procesarVenta = async (
       });
     }
 
+    const { data: user } = await supabase
+      .from("usuario")
+      .select("nombre_usuario")
+      .eq("id_usuario", registro.id_usuario)
+      .single();
+    const nombreRev = user?.nombre_usuario || "revendedor";
+
     await crearMovimientoStock({
       id_empresa: id_empresa,
       id_producto: idProducto,
       tipo_movimiento: "SALIDA",
       cantidad: cantidad_vendida,
-      motivo: "Venta concretada por revendedor/camioneta",
+      motivo: `Venta concretada por: ${nombreRev}`,
     });
 
     return true;
@@ -191,6 +206,13 @@ export const eliminarRevendedor = async (
   id_empresa: number,
 ): Promise<boolean> => {
   try {
+    const { data: user } = await supabase
+      .from("usuario")
+      .select("nombre_usuario")
+      .eq("id_usuario", id_usuario)
+      .single();
+    const nombreRev = user?.nombre_usuario || "revendedor eliminado";
+
     const { data: stockEnPoder, error: errStock } = await supabase
       .from("stock_revendedor")
       .select("id_producto, cantidad")
@@ -206,18 +228,18 @@ export const eliminarRevendedor = async (
           .select("stock_unidades")
           .eq("id_producto", item.id_producto)
           .single();
-
         if (prod) {
           await supabase
             .from("producto")
             .update({ stock_unidades: prod.stock_unidades + item.cantidad })
             .eq("id_producto", item.id_producto);
+
           await crearMovimientoStock({
             id_empresa: id_empresa,
             id_producto: item.id_producto,
             tipo_movimiento: "ENTRADA",
             cantidad: item.cantidad,
-            motivo: "Devolución automática por eliminación de cuenta",
+            motivo: `Devolución automática al eliminar cuenta de: ${nombreRev}`,
           });
         }
       }
@@ -285,12 +307,19 @@ export const asignarStockARevendedor = async (
       .update({ stock_unidades: prod.stock_unidades - cantidad })
       .eq("id_producto", id_producto);
 
+    const { data: user } = await supabase
+      .from("usuario")
+      .select("nombre_usuario")
+      .eq("id_usuario", id_usuario)
+      .single();
+    const nombreRev = user?.nombre_usuario || "revendedor";
+
     await crearMovimientoStock({
       id_empresa,
       id_producto,
       tipo_movimiento: "SALIDA",
       cantidad,
-      motivo: `Asignación a revendedor (${estado})`,
+      motivo: `Asignación a: ${nombreRev} (${estado})`,
     });
 
     return { exito: true };

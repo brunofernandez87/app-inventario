@@ -2,7 +2,7 @@ import {
   obtenerHistorialMovimientos,
   registrarMovimientoManual,
 } from "@/service/movimiento_stock";
-import { obtenerProductosParaAsignar } from "@/service/stock_revendedor"; // Reutilizamos esta función genial
+import { obtenerProductosParaAsignar } from "@/service/stock_revendedor";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -181,67 +181,119 @@ export default function MovimientosScreen() {
         : `+ ${item.cantidad}`;
     const colorCantidad =
       item.tipo_movimiento === "SALIDA" ? "#b91c1c" : "#15803d";
-
-    if (Platform.OS !== "web") {
-      return (
-        <View style={styles.cardMobile}>
-          <View style={styles.cardRowMobile}>
-            <Text style={styles.dateMobile}>
-              {fecha} • {hora}
-            </Text>
-            <BadgeTipo tipo={item.tipo_movimiento} motivo={item.motivo} />
-          </View>
-          <Text style={styles.productNameMobile}>{nombreProducto}</Text>
-          <Text style={styles.productCodeMobile}>{codigoProducto}</Text>
-          <View style={styles.cardRowMobile}>
-            <Text style={[styles.quantityMobile, { color: colorCantidad }]}>
-              {cantidadFormateada} uds.
-            </Text>
-            <Text style={styles.reasonMobile} numberOfLines={1}>
-              {item.motivo}
-            </Text>
-          </View>
-        </View>
-      );
-    }
+    const isWeb = Platform.OS === "web";
 
     return (
-      <View style={styles.tableRow}>
-        <View style={[styles.tableCol, { flex: 1 }]}>
-          <Text style={styles.rowTxtBase}>{fecha}</Text>
-          <Text style={styles.rowTxtSub}>{hora}</Text>
-        </View>
-        <View style={[styles.tableCol, { flex: 2.5 }]}>
-          <Text style={[styles.rowTxtBase, { fontWeight: "bold" }]}>
-            {nombreProducto}
-          </Text>
-          <Text style={styles.rowTxtSub}>{codigoProducto}</Text>
-        </View>
-        <View style={[styles.tableCol, { flex: 1, alignItems: "center" }]}>
-          <BadgeTipo tipo={item.tipo_movimiento} motivo={item.motivo} />
-        </View>
-        <View style={[styles.tableCol, { flex: 1, alignItems: "center" }]}>
-          <Text
-            style={[
-              styles.rowTxtBase,
-              { fontWeight: "bold", color: colorCantidad },
-            ]}
-          >
-            {cantidadFormateada}
-          </Text>
-        </View>
-        <View style={[styles.tableCol, { flex: 2.5 }]}>
-          <Text style={styles.rowTxtBase} numberOfLines={2}>
-            {item.motivo}
-          </Text>
-        </View>
+      <View
+        style={[
+          styles.cardMobile,
+          isWeb && {
+            flexDirection: "row",
+            alignItems: "center",
+            paddingVertical: 14,
+            width: "100%",
+          },
+        ]}
+      >
+        {isWeb ? (
+          <>
+            <View
+              style={{ flex: 1, paddingRight: 10, justifyContent: "center" }}
+            >
+              <Text
+                style={[styles.dateMobile, { marginTop: 0, fontWeight: "600" }]}
+              >
+                {fecha}
+              </Text>
+              <Text style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                {hora}
+              </Text>
+            </View>
+            <View
+              style={{
+                flex: 1.5,
+                paddingHorizontal: 10,
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={[
+                  styles.productNameMobile,
+                  { marginTop: 0, marginBottom: 2 },
+                ]}
+              >
+                {nombreProducto}
+              </Text>
+              <Text style={{ fontSize: 13, color: "#94a3b8" }}>
+                {codigoProducto}
+              </Text>
+            </View>
+            <View
+              style={{
+                flex: 2,
+                paddingHorizontal: 10,
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{ fontSize: 14, color: "#475569" }}
+                numberOfLines={2}
+              >
+                {item.motivo}
+              </Text>
+            </View>
+            <View
+              style={{
+                flex: 1,
+                alignItems: "flex-end",
+                justifyContent: "center",
+                paddingHorizontal: 10,
+              }}
+            >
+              <Text style={[styles.quantityMobile, { color: colorCantidad }]}>
+                {cantidadFormateada} uds.
+              </Text>
+            </View>
+            <View
+              style={{
+                flex: 0.8,
+                alignItems: "flex-end",
+                justifyContent: "center",
+                paddingLeft: 10,
+              }}
+            >
+              <BadgeTipo tipo={item.tipo_movimiento} motivo={item.motivo} />
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.cardRowMobile}>
+              <Text style={styles.dateMobile}>
+                {fecha} • {hora}
+              </Text>
+              <BadgeTipo tipo={item.tipo_movimiento} motivo={item.motivo} />
+            </View>
+            <Text style={styles.productNameMobile}>{nombreProducto}</Text>
+            <Text style={styles.productCodeMobile}>{codigoProducto}</Text>
+            <View style={[styles.cardRowMobile, { alignItems: "flex-start" }]}>
+              <Text
+                style={[
+                  styles.quantityMobile,
+                  { color: colorCantidad, marginTop: 2 },
+                ]}
+              >
+                {cantidadFormateada} uds.
+              </Text>
+              <Text style={styles.reasonMobile}>{item.motivo}</Text>
+            </View>
+          </>
+        )}
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
-      {/* HEADER Y BOTONES NUEVOS */}
       <View style={styles.headerContainer}>
         <View>
           <Text style={styles.tituloPrincipal}>Movimientos</Text>
@@ -293,42 +345,22 @@ export default function MovimientosScreen() {
             style={{ marginTop: 40 }}
           />
         ) : (
-          <>
-            {Platform.OS === "web" && (
-              <View style={styles.tableHead}>
-                <Text style={[styles.colHead, { flex: 1 }]}>Fecha</Text>
-                <Text style={[styles.colHead, { flex: 2.5 }]}>Producto</Text>
-                <Text
-                  style={[styles.colHead, { flex: 1, textAlign: "center" }]}
-                >
-                  Tipo
-                </Text>
-                <Text
-                  style={[styles.colHead, { flex: 1, textAlign: "center" }]}
-                >
-                  Cantidad
-                </Text>
-                <Text style={[styles.colHead, { flex: 2.5 }]}>Motivo</Text>
-              </View>
-            )}
-            <FlatList
-              data={movimientosFiltrados}
-              keyExtractor={(item, index) =>
-                item.id_registro?.toString() || index.toString()
-              }
-              renderItem={renderItem}
-              contentContainerStyle={{ paddingBottom: 40 }}
-              ListEmptyComponent={
-                <Text style={styles.emptyTxt}>
-                  No se encontraron movimientos.
-                </Text>
-              }
-            />
-          </>
+          <FlatList
+            data={movimientosFiltrados}
+            keyExtractor={(item, index) =>
+              item.id_registro?.toString() || index.toString()
+            }
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingBottom: 40 }}
+            ListEmptyComponent={
+              <Text style={styles.emptyTxt}>
+                No se encontraron movimientos.
+              </Text>
+            }
+          />
         )}
       </View>
 
-      {/* MODAL DEL DESPLEGABLE (FILTRO) */}
       <Modal
         visible={modalFiltroVisible}
         transparent={true}
@@ -339,13 +371,16 @@ export default function MovimientosScreen() {
           activeOpacity={1}
           onPress={() => setModalFiltroVisible(false)}
         >
-          <View style={styles.modalBoxFiltro}>
-            <Text style={styles.modalTitle}>Filtrar por tipo</Text>
+          <View style={[styles.modalBoxFiltro, { paddingVertical: 20 }]}>
+            <Text style={[styles.modalTitle, { paddingHorizontal: 24 }]}>
+              Filtrar por tipo
+            </Text>
             {opcionesFiltro.map((opcion) => (
               <TouchableOpacity
                 key={opcion}
                 style={[
                   styles.selectorItem,
+                  { paddingHorizontal: 24 },
                   filtroTipo === opcion && { backgroundColor: "#eff6ff" },
                 ]}
                 onPress={() => {
@@ -370,7 +405,6 @@ export default function MovimientosScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* MODAL REGISTRO MANUAL (ENTRADA / SALIDA) */}
       <Modal
         visible={modalRegistroVisible}
         transparent={true}
@@ -440,7 +474,6 @@ export default function MovimientosScreen() {
         </View>
       </Modal>
 
-      {/* SELECTOR DE PRODUCTOS (MODAL SECUNDARIO) */}
       <Modal
         visible={modalSelectorVisible}
         transparent={true}
@@ -542,37 +575,13 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  tableHead: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-    paddingBottom: 12,
-    marginBottom: 8,
-  },
-  colHead: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: "#64748b",
-    textTransform: "uppercase",
-  },
-  tableRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f8fafc",
-  },
-  tableCol: { justifyContent: "center", paddingRight: 10 },
-  rowTxtBase: { fontSize: 15, color: "#334155" },
-  rowTxtSub: { fontSize: 13, color: "#94a3b8", marginTop: 4 },
-
   cardMobile: {
-    backgroundColor: "#fff",
+    backgroundColor: "#f8fafc",
     borderRadius: 8,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: "#e2e8f0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
