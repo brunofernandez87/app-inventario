@@ -6,7 +6,7 @@ import {
   obtenerStockBajo,
 } from "@/service/producto";
 import { BlurView } from "expo-blur";
-import { Link, Stack } from "expo-router";
+import { Stack } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
@@ -139,15 +139,24 @@ export default function ListaProductos() {
   //logica de impresion
   const imprimirListaPDF = async () => {
     const filasHTML = lista
-      .map(
-        (item) => `
-    <tr>
+      .map((item) => {
+        const precio = Number(item.precio_venta) || 0;
+        const unidades = Number(item.unidades_por_paquete) || 0;
+        const porcentajeDescuento = Number(item.bonificacion_paquete) || 0;
+        const subtotal = precio * unidades;
+        // Calculamos el monto a descontar y se lo restamos al subtotal
+        const totalBonificado =
+          subtotal - subtotal * (porcentajeDescuento / 100);
+        return `
+          <tr>
       <td>${item.nombre_producto || "-"}</td>
       <td>${item.marca || "-"}</td>
-      <td>$${item.precio_venta || 0}</td>
+   <td>$${precio.toFixed(2)}</td>
+         <td>${unidades}</td>
+         <td>$${totalBonificado.toFixed(2)}</td>
     </tr>
-  `,
-      )
+  `;
+      })
       .join("");
 
     const htmlContent = `
@@ -172,7 +181,9 @@ export default function ListaProductos() {
             <tr>
               <th>Nombre</th>
               <th>Marca</th>
-              <th>Precio</th>
+              <th>Precio por unidad</th>
+              <th>unidad por paquete cerrado</th>
+              <th>Bonificacion pack cerrado</th>
             </tr>
           </thead>
           <tbody>
@@ -195,11 +206,9 @@ export default function ListaProductos() {
         >
           <Text style={styles.textoBotonToolbar}>Crear Producto +</Text>
         </Pressable>
-        <Link href="/" asChild>
-          <Pressable style={styles.botonToolbar} onPress={imprimirListaPDF}>
-            <Text style={styles.textoBotonToolbar}>Imprimir lista</Text>
-          </Pressable>
-        </Link>
+        <Pressable style={styles.botonToolbar} onPress={imprimirListaPDF}>
+          <Text style={styles.textoBotonToolbar}>Imprimir lista</Text>
+        </Pressable>
         <Pressable
           onPress={stockBajo}
           style={[
