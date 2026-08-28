@@ -171,7 +171,13 @@ export default function EditarProducto({ onClose, producto }) {
         <TextInput
           style={styles.input}
           value={costo_compra}
-          onChangeText={setCosto_compra}
+          onChangeText={(texto) => {
+            const textoNormalizado = texto.replace(",", ".");
+            // Previene que escriban más de un punto accidentalmente
+            if (/^\d*\.?\d*$/.test(textoNormalizado)) {
+              setCosto_compra(textoNormalizado);
+            }
+          }}
           placeholder="1500"
           keyboardType="numeric"
           onSubmitEditing={guardarProducto}
@@ -181,7 +187,13 @@ export default function EditarProducto({ onClose, producto }) {
         <TextInput
           style={styles.input}
           value={precio_venta}
-          onChangeText={setPrecio_venta}
+          onChangeText={(texto) => {
+            const textoNormalizado = texto.replace(",", ".");
+            // Previene que escriban más de un punto accidentalmente
+            if (/^\d*\.?\d*$/.test(textoNormalizado)) {
+              setPrecio_venta(textoNormalizado);
+            }
+          }}
           placeholder="2000"
           keyboardType="numeric"
           onSubmitEditing={guardarProducto}
@@ -202,7 +214,10 @@ export default function EditarProducto({ onClose, producto }) {
         <TextInput
           style={styles.input}
           value={stock_unidades}
-          onChangeText={cambiarStockUnidades}
+          onChangeText={(texto) => {
+            const soloNumeros = texto.replace(/[^0-9]/g, "");
+            cambiarStockUnidades(soloNumeros);
+          }}
           placeholder="12"
           placeholderTextColor="#9ca3af"
           keyboardType="numeric"
@@ -213,7 +228,10 @@ export default function EditarProducto({ onClose, producto }) {
         <TextInput
           style={styles.input}
           value={unidades_paquete}
-          onChangeText={cambiarUnidadesPorPaquete}
+          onChangeText={(texto) => {
+            const soloNumeros = texto.replace(/[^0-9]/g, "");
+            cambiarUnidadesPorPaquete(soloNumeros);
+          }}
           placeholder="6"
           placeholderTextColor="#9ca3af"
           keyboardType="numeric"
@@ -224,7 +242,10 @@ export default function EditarProducto({ onClose, producto }) {
         <TextInput
           style={styles.input}
           value={stock_paquetes}
-          onChangeText={cambiarStockPaquetes}
+          onChangeText={(texto) => {
+            const soloNumeros = texto.replace(/[^0-9]/g, "");
+            cambiarStockPaquetes(soloNumeros);
+          }}
           placeholder="2"
           placeholderTextColor="#9ca3af"
           keyboardType="numeric"
@@ -237,7 +258,10 @@ export default function EditarProducto({ onClose, producto }) {
         <TextInput
           style={styles.input}
           value={bonificacion_paquete}
-          onChangeText={setBonificacion_paquete}
+          onChangeText={(texto) => {
+            const soloNumeros = texto.replace(/[^0-9]/g, "");
+            setBonificacion_paquete(soloNumeros);
+          }}
           placeholder="10%"
           placeholderTextColor="#9ca3af"
           keyboardType="numeric"
@@ -250,7 +274,10 @@ export default function EditarProducto({ onClose, producto }) {
         <TextInput
           style={styles.input}
           value={stock_minimo}
-          onChangeText={setStock_minimo}
+          onChangeText={(texto) => {
+            const soloNumeros = texto.replace(/[^0-9]/g, "");
+            setStock_minimo(soloNumeros);
+          }}
           placeholder="2"
           placeholderTextColor="#9ca3af"
           keyboardType="numeric"
