@@ -19,11 +19,11 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { imprimirPDF } from "../../utils/impresora";
 import Carrito from "../producto/carrito";
 import CodigoProducto from "../producto/codigoProducto";
 import CreacionProducto from "../producto/crearProducto";
 import EditarProducto from "../producto/editarProducto";
-import { imprimirPDF } from "../utils/impresora";
 import VentanaConfirmacion from "../ventanaConfirmacion";
 export default function ListaProductos() {
   const { width } = useWindowDimensions();

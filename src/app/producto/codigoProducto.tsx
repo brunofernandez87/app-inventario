@@ -2,7 +2,7 @@ import Barcode from "@kichiyaki/react-native-barcode-generator";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { imprimirPDF } from "../utils/impresora";
+import { imprimirPDF } from "../../utils/impresora";
 export default function CodigoProducto({ onClose, producto }) {
   const imprimir_codigos = async () => {
     const nombre = producto?.nombre_producto || "Producto sin nombre";
