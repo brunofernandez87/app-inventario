@@ -3,7 +3,20 @@ const ListaCarritoContext = createContext(null);
 export function ListaCarritoProvider({ children }) {
   const [listaCarrito, setListaCarrito] = useState([]);
   const agregarAlCarrito = (producto) => {
-    setListaCarrito((carritoAnterior) => [...carritoAnterior, producto]);
+    setListaCarrito((carritoAnterior) => {
+      const productoExistente = carritoAnterior.find(
+        (item) => item.id_producto === producto.id_producto,
+      );
+      if (productoExistente) {
+        return carritoAnterior.map((item) =>
+          item.id_producto === producto.id_producto
+            ? { ...item, cantidad: (item.cantidad || 1) + 1 }
+            : item,
+        );
+      } else {
+        return [...carritoAnterior, { ...producto, cantidad: 1 }];
+      }
+    });
   };
   const vaciarCarrito = () => {
     setListaCarrito([]);

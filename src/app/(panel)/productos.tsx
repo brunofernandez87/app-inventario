@@ -1,3 +1,4 @@
+import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
 import {
@@ -34,87 +35,97 @@ export default function ListaProductos() {
   const { listaProducto, cargando, fetchProducts } = useListaProducto();
   const [modalElminar, setModalEliminar] = useState(false);
   const [modalCodigo, setModalCodigo] = useState(false);
+  const { agregarAlCarrito } = useListaCarrito();
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
     [],
   );
   const [lista, setLista] = useState(listaProducto);
   const { empresa } = useEmpresa();
-  const renderItem = useCallback(({ item }: { item: any }) => {
-    const filaConAlerta = item.alerta_proyeccion
-      ? { backgroundColor: "#fee2e2" }
-      : {};
-    const margen =
-      item.costo_compra > 0
-        ? Math.round(
-            ((item.precio_venta - item.costo_compra) / item.costo_compra) * 100,
-          )
-        : 0;
-    return (
-      <Pressable
-        onLongPress={() => abrirOpciones(item)}
-        style={({ pressed }) => [
-          styles.fila,
-          filaConAlerta,
-          pressed && { opacity: 0.6 }, // Efecto visual al mantener apretado
-        ]}
-      >
-        <View style={[styles.celda, { width: 140 }]}>
-          <Text style={styles.textoPrincipal} numberOfLines={1}>
-            {item.codigo_alfanumerico}
-          </Text>
-          <Text style={styles.textoSecundario} numberOfLines={1}>
-            {item.codigo_barras}
-          </Text>
-        </View>
-
-        {/* Producto */}
-        <View style={[styles.celda, { width: 250 }]}>
-          <Text
-            style={[styles.textoPrincipal, { fontSize: 15 }]}
-            numberOfLines={1}
-          >
-            {item.nombre_producto}
-          </Text>
-          <Text style={styles.textoSecundario} numberOfLines={1}>
-            {item.marca} • unidad
-          </Text>
-        </View>
-
-        {/* Ubicación */}
-        <View style={[styles.celda, { width: 120, alignItems: "flex-start" }]}>
-          <View style={styles.badgeUbicacion}>
-            <Text style={styles.textoBadge}>{item.ubicacion || "-"}</Text>
+  const renderItem = useCallback(
+    ({ item }: { item: any }) => {
+      const filaConAlerta = item.alerta_proyeccion
+        ? { backgroundColor: "#fee2e2" }
+        : {};
+      const margen =
+        item.costo_compra > 0
+          ? Math.round(
+              ((item.precio_venta - item.costo_compra) / item.costo_compra) *
+                100,
+            )
+          : 0;
+      return (
+        <Pressable
+          onPress={() => agregarAlCarrito(item)}
+          onLongPress={() => abrirOpciones(item)}
+          style={({ pressed }) => [
+            styles.fila,
+            filaConAlerta,
+            pressed && { opacity: 0.6 }, // Efecto visual al mantener apretado
+          ]}
+        >
+          <View style={[styles.celda, { width: 140 }]}>
+            <Text style={styles.textoPrincipal} numberOfLines={1}>
+              {item.codigo_alfanumerico}
+            </Text>
+            <Text style={styles.textoSecundario} numberOfLines={1}>
+              {item.codigo_barras}
+            </Text>
           </View>
-        </View>
 
-        {/* Costo */}
-        <View style={[styles.celda, { width: 100 }]}>
-          <Text style={styles.textoNormal}>${item.costo_compra}</Text>
-        </View>
+          {/* Producto */}
+          <View style={[styles.celda, { width: 250 }]}>
+            <Text
+              style={[styles.textoPrincipal, { fontSize: 15 }]}
+              numberOfLines={1}
+            >
+              {item.nombre_producto}
+            </Text>
+            <Text style={styles.textoSecundario} numberOfLines={1}>
+              {item.marca} • unidad
+            </Text>
+          </View>
 
-        {/* Precio */}
-        <View style={[styles.celda, { width: 100 }]}>
-          <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
-            ${item.precio_venta}
-          </Text>
-        </View>
+          {/* Ubicación */}
+          <View
+            style={[styles.celda, { width: 120, alignItems: "flex-start" }]}
+          >
+            <View style={styles.badgeUbicacion}>
+              <Text style={styles.textoBadge}>{item.ubicacion || "-"}</Text>
+            </View>
+          </View>
 
-        {/* Margen */}
-        <View style={[styles.celda, { width: 90 }]}>
-          <Text style={styles.textoVerde}>+{margen}%</Text>
-        </View>
+          {/* Costo */}
+          <View style={[styles.celda, { width: 100 }]}>
+            <Text style={styles.textoNormal}>${item.costo_compra}</Text>
+          </View>
 
-        {/* Stock */}
-        <View style={[styles.celda, { width: 100, alignItems: "center" }]}>
-          <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
-            {item.stock_unidades}
-          </Text>
-          <Text style={styles.textoSecundario}>{item.stock_paquetes} paq.</Text>
-        </View>
-      </Pressable>
-    );
-  }, []);
+          {/* Precio */}
+          <View style={[styles.celda, { width: 100 }]}>
+            <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
+              ${item.precio_venta}
+            </Text>
+          </View>
+
+          {/* Margen */}
+          <View style={[styles.celda, { width: 90 }]}>
+            <Text style={styles.textoVerde}>+{margen}%</Text>
+          </View>
+
+          {/* Stock */}
+          <View style={[styles.celda, { width: 100, alignItems: "center" }]}>
+            <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
+              {item.stock_unidades}
+            </Text>
+            <Text style={styles.textoSecundario}>
+              {item.stock_paquetes} paq.
+            </Text>
+          </View>
+        </Pressable>
+      );
+    },
+    [agregarAlCarrito],
+  );
   const [filterStockBajo, setFilterStockBajo] = useState(false);
   const [filterAlerta, setFilterAlerta] = useState(false);
   const stockBajo = async () => {
@@ -280,56 +291,76 @@ export default function ListaProductos() {
               : "No hay productos cargados en tu inventario."}{" "}
         </Text>
       ) : (
-        <View style={{ flex: 1 }}>
-          <ScrollView horizontal={true} style={{ flex: 1 }}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.encabezadoRow}>
-                <Text style={[styles.celdaEncabezado, { width: 140 }]}>
-                  Código
-                </Text>
-                <Text style={[styles.celdaEncabezado, { width: 250 }]}>
-                  Producto
-                </Text>
-                <Text style={[styles.celdaEncabezado, { width: 120 }]}>
-                  Ubicacion
-                </Text>
-                <Text style={[styles.celdaEncabezado, { width: 100 }]}>
-                  Costo
-                </Text>
+        <View
+          style={{
+            flex: 1,
+            flexDirection: celular ? "column" : "row",
+            gap: 20,
+          }}
+        >
+          <View style={{ flex: celular ? 1 : 2 }}>
+            <ScrollView horizontal={true} style={{ flex: 1 }}>
+              <View style={{ flex: 1 }}>
+                <View style={styles.encabezadoRow}>
+                  <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                    Código
+                  </Text>
+                  <Text style={[styles.celdaEncabezado, { width: 250 }]}>
+                    Producto
+                  </Text>
+                  <Text style={[styles.celdaEncabezado, { width: 120 }]}>
+                    Ubicacion
+                  </Text>
+                  <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                    Costo
+                  </Text>
 
-                <Text style={[styles.celdaEncabezado, { width: 100 }]}>
-                  Precio
-                </Text>
-                <Text style={[styles.celdaEncabezado, { width: 90 }]}>
-                  Margen
-                </Text>
-                <Text
-                  style={[
-                    styles.celdaEncabezado,
-                    { width: 100, textAlign: "center" },
-                  ]}
-                >
-                  Stock
-                </Text>
+                  <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                    Precio
+                  </Text>
+                  <Text style={[styles.celdaEncabezado, { width: 90 }]}>
+                    Margen
+                  </Text>
+                  <Text
+                    style={[
+                      styles.celdaEncabezado,
+                      { width: 100, textAlign: "center" },
+                    ]}
+                  >
+                    Stock
+                  </Text>
+                </View>
+                <FlatList
+                  // flatList ya viene con scroll view y podes limitar las columnas con num columns
+                  // es el arreglo que va a recorrer
+                  data={lista}
+                  // sirve para saber cual es la clave de cada fila tiene que ser string lo que se pasa en key extractor
+                  keyExtractor={memoizedKeyExtractor}
+                  // se le muestra como muestra el item desestructurandolo
+                  renderItem={renderItem}
+                  // Optimizaciones extra para FlatList con muchos datos:
+                  initialNumToRender={15}
+                  maxToRenderPerBatch={10}
+                  windowSize={5}
+                />
               </View>
-              <FlatList
-                // flatList ya viene con scroll view y podes limitar las columnas con num columns
-                // es el arreglo que va a recorrer
-                data={lista}
-                // sirve para saber cual es la clave de cada fila tiene que ser string lo que se pasa en key extractor
-                keyExtractor={memoizedKeyExtractor}
-                // se le muestra como muestra el item desestructurandolo
-                renderItem={renderItem}
-                // Optimizaciones extra para FlatList con muchos datos:
-                initialNumToRender={15}
-                maxToRenderPerBatch={10}
-                windowSize={5}
-              />
-            </View>
-          </ScrollView>
+            </ScrollView>
+          </View>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "#ffffff",
+              borderRadius: 12,
+              elevation: 2,
+              shadowColor: "#000",
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+            }}
+          >
+            <Carrito />
+          </View>
         </View>
       )}
-      <Carrito />
       <Modal
         animationType="fade"
         transparent={true} // Permite ver el fondo oscuro

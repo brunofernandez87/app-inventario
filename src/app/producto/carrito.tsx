@@ -38,7 +38,7 @@ export default function Carrito() {
         ]}
         onLongPress={() => eliminar(item)}
       >
-        <View style={[styles.celda, { width: 140 }]}>
+        <View style={[styles.celda, { flex: 1.2 }]}>
           <Text style={styles.textoPrincipal} numberOfLines={1}>
             {item.codigo_alfanumerico}
           </Text>
@@ -48,7 +48,7 @@ export default function Carrito() {
         </View>
 
         {/* Producto */}
-        <View style={[styles.celda, { width: 250 }]}>
+        <View style={[styles.celda, { flex: 2 }]}>
           <Text
             style={[styles.textoPrincipal, { fontSize: 15 }]}
             numberOfLines={1}
@@ -60,7 +60,7 @@ export default function Carrito() {
           </Text>
         </View>
         {/* Precio */}
-        <View style={[styles.celda, { width: 100 }]}>
+        <View style={[styles.celda, { flex: 1 }]}>
           <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
             ${item.precio_venta}
           </Text>
@@ -70,11 +70,11 @@ export default function Carrito() {
           style={[
             styles.celda,
             {
-              width: 120,
+              width: 90,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
-              paddingHorizontal: 10,
+              paddingHorizontal: 2,
             },
           ]}
         >
@@ -86,7 +86,7 @@ export default function Carrito() {
           </Pressable>
 
           <Text
-            style={[styles.textoPrincipal, { fontSize: 16, marginBottom: 0 }]}
+            style={[styles.textoPrincipal, { fontSize: 15, marginBottom: 0 }]}
           >
             {cantidad}
           </Text>
@@ -99,9 +99,9 @@ export default function Carrito() {
           </Pressable>
         </View>
         {/* Subtotal */}
-        <View style={[styles.celda, { width: 100, alignItems: "flex-end" }]}>
+        <View style={[styles.celda, { flex: 1.2, alignItems: "flex-end" }]}>
           <Text
-            style={[styles.textoPrincipal, { fontSize: 15, color: "#15803d" }]}
+            style={[styles.textoPrincipal, { fontSize: 14, color: "#15803d" }]}
           >
             ${subtotal.toFixed(2)}
           </Text>
@@ -149,25 +149,25 @@ export default function Carrito() {
       <Text style={styles.tituloHeader}>Carrito</Text>
       <View style={{ flex: 1 }}>
         {listaCarrito.length === 0 ? (
-          <Text>No hay productos en el carrito</Text>
+          <Text style={styles.textoVacio}>No hay productos en el carrito</Text>
         ) : (
           <View style={{ flex: 1 }}>
             <ScrollView horizontal={true} style={{ flex: 1 }}>
               <View style={{ flex: 1 }}>
                 <View style={styles.encabezadoRow}>
-                  <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                  <Text style={[styles.celdaEncabezado, { flex: 1.2 }]}>
                     Código
                   </Text>
-                  <Text style={[styles.celdaEncabezado, { width: 250 }]}>
+                  <Text style={[styles.celdaEncabezado, { flex: 2 }]}>
                     Producto
                   </Text>
-                  <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                  <Text style={[styles.celdaEncabezado, { flex: 1 }]}>
                     Precio
                   </Text>
                   <Text
                     style={[
                       styles.celdaEncabezado,
-                      { width: 120, textAlign: "center" },
+                      { width: 90, textAlign: "center" },
                     ]}
                   >
                     Cantidad
@@ -175,7 +175,7 @@ export default function Carrito() {
                   <Text
                     style={[
                       styles.celdaEncabezado,
-                      { width: 100, textAlign: "right" },
+                      { flex: 1.2, textAlign: "right" },
                     ]}
                   >
                     Subtotal
@@ -233,18 +233,17 @@ export default function Carrito() {
   );
 }
 const styles = StyleSheet.create({
-  tituloHeader: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
-  textoVacio: { fontSize: 16, color: "#64748b", marginTop: 20 },
+  tituloHeader: { fontSize: 20, fontWeight: "bold", marginBottom: 20 },
+  textoVacio: { fontSize: 14, color: "#64748b", marginTop: 20 },
   encabezadoRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#f1f5f9",
-    paddingVertical: 12,
-    paddingHorizontal: 15,
+    paddingVertical: 10,
     backgroundColor: "#ffffff",
   },
   celdaEncabezado: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: "#64748b",
     paddingHorizontal: 5,
@@ -253,46 +252,44 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#f1f5f9",
-    paddingVertical: 15,
-    paddingHorizontal: 15,
+    paddingVertical: 12,
     backgroundColor: "#ffffff",
     alignItems: "center",
   },
-  celda: { paddingHorizontal: 5, justifyContent: "center" },
+  celda: { paddingHorizontal: 2, justifyContent: "center" },
   textoPrincipal: {
     fontSize: 14,
     fontWeight: "700",
     color: "#1e293b",
     marginBottom: 2,
   },
-  textoSecundario: { fontSize: 13, color: "#94a3b8" },
+  textoSecundario: { fontSize: 12, color: "#94a3b8" },
   modalVentana: {
     width: "100%",
-    maxWidth: 700, // Limita el ancho en la PC
+    maxWidth: 400, // Limita el ancho en la PC
     maxHeight: "90%", // Evita que se salga de la pantalla si es muy largo
     backgroundColor: "white",
     borderRadius: 12,
     overflow: "hidden", // Para que el ScrollView interno no tape los bordes redondos
   },
   modalVentanaCelular: {
-    maxHeight: "95%",
     padding: 5,
   },
   botonCantidad: {
     backgroundColor: "#f1f5f9",
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
   textoBotonCantidad: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#334155",
-    lineHeight: 20,
+    lineHeight: 18,
   },
   modalFondo: {
     flex: 1,
@@ -307,25 +304,25 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#e2e8f0",
     paddingVertical: 15,
-    marginTop: 10,
+    marginTop: 5,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   textoTotal: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#0f172a",
   },
   botonComprar: {
     backgroundColor: "#2563eb",
-    paddingHorizontal: 25,
     paddingVertical: 12,
     borderRadius: 8,
   },
   textoBotonComprar: {
     color: "#ffffff",
     fontWeight: "bold",
+    textAlign: "center",
     fontSize: 16,
   },
 });
