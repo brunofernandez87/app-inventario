@@ -106,6 +106,14 @@ export default function Carrito() {
             ${subtotal.toFixed(2)}
           </Text>
         </View>
+        <Pressable
+          onPress={() => eliminar(item)}
+          style={{ padding: 5, justifyContent: "center", alignItems: "center" }}
+        >
+          <Text style={{ color: "#ef4444", fontWeight: "bold", fontSize: 16 }}>
+            X
+          </Text>
+        </Pressable>
       </Pressable>
     );
   }, []);
