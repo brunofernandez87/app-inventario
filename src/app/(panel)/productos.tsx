@@ -298,7 +298,14 @@ export default function ListaProductos() {
             gap: 20,
           }}
         >
-          <View style={{ flex: celular ? 1 : 2 }}>
+          <View
+            style={[
+              styles.contenedorTabla,
+              {
+                flex: celular ? 1 : 2,
+              },
+            ]}
+          >
             <ScrollView horizontal={true} style={{ flex: 1 }}>
               <View style={{ flex: 1 }}>
                 <View style={styles.encabezadoRow}>
@@ -346,17 +353,7 @@ export default function ListaProductos() {
               </View>
             </ScrollView>
           </View>
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "#ffffff",
-              borderRadius: 12,
-              elevation: 2,
-              shadowColor: "#000",
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-            }}
-          >
+          <View style={styles.contenedorTabla}>
             <Carrito />
           </View>
         </View>
@@ -494,6 +491,15 @@ export default function ListaProductos() {
   );
 }
 const styles = StyleSheet.create({
+  contenedorTabla: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    overflow: "hidden", // Fundamental para que las esquinas no se vuelvan cuadradas
+  },
   modalFondo: {
     flex: 1,
     justifyContent: "center",
