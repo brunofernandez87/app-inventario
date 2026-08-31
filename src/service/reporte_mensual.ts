@@ -200,7 +200,7 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
       proyecciones.push({
         id: prod.id_producto,
         nombre: prod.nombre_producto,
-        codigo: prod.codigo_barras || prod.codigo_alfanumerico || "S/C",
+        codigo: prod.codigo_alfanumerico || "S/C",
         stock: stock,
         prom:
           promMensual > 0 ? `~${Math.round(promMensual)}/mes` : "Sin ventas",
@@ -222,7 +222,7 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
       rentabilidad.push({
         id: prod.id_producto,
         nombre: prod.nombre_producto,
-        codigoMarca: prod.codigo_barras || prod.codigo_alfanumerico || "S/C",
+        codigoMarca: prod.codigo_alfanumerico || "S/C",
         costo: costo,
         precio: precio,
         ganancia: ganancia,

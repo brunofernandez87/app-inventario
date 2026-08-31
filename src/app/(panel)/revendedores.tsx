@@ -9,6 +9,7 @@ import {
   procesarVenta,
 } from "@/service/stock_revendedor";
 import { StockRevendedor, Usuario } from "@/types/types";
+import { BlurView } from "expo-blur";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
@@ -191,6 +192,7 @@ export default function StockRevendedorScreen() {
       setLoading(false);
     }
   };
+
   const handleEliminarRevendedor = (id: number, nombre: string) => {
     if (Platform.OS === "web") {
       if (
@@ -221,6 +223,7 @@ export default function StockRevendedorScreen() {
       );
     }
   };
+
   const handleConfirmarAsignacion = async () => {
     const cantidadFinal = parseFloat(asignarCantidad);
     if (!asignarIdUsuario)
@@ -503,7 +506,14 @@ export default function StockRevendedorScreen() {
             nestedScrollEnabled={true}
             style={{ maxHeight: isWeb ? 500 : undefined }}
           >
-            <View style={{ paddingTop: 10, width: "100%" }}>
+            <View
+              style={{
+                paddingTop: 10,
+                alignSelf: isWeb ? "center" : "auto",
+                width: "100%",
+                maxWidth: isWeb ? 1200 : "100%",
+              }}
+            >
               {stock.map((fila) => {
                 const rev = usuarios.find(
                   (u) => u.id_usuario === fila.id_usuario,
@@ -536,19 +546,13 @@ export default function StockRevendedorScreen() {
                       isWeb && {
                         flexDirection: "row",
                         alignItems: "center",
-                        paddingVertical: 14,
+                        paddingVertical: 12,
                       },
                     ]}
                   >
                     {isWeb ? (
                       <>
-                        <View
-                          style={{
-                            flex: 1,
-                            paddingRight: 10,
-                            justifyContent: "center",
-                          }}
-                        >
+                        <View style={{ flex: 1, paddingRight: 10 }}>
                           <Text style={[styles.dateMobile, { marginTop: 0 }]}>
                             {fechaStr} •{" "}
                             <Text style={{ fontWeight: "bold" }}>
@@ -556,36 +560,23 @@ export default function StockRevendedorScreen() {
                             </Text>
                           </Text>
                         </View>
-                        <View
-                          style={{
-                            flex: 1.5,
-                            paddingHorizontal: 10,
-                            justifyContent: "center",
-                          }}
-                        >
+                        <View style={{ flex: 2, paddingHorizontal: 10 }}>
                           <Text
-                            style={[styles.productNameMobile, { marginTop: 0 }]}
+                            style={[
+                              styles.productNameMobile,
+                              { marginTop: 0, marginBottom: 4 },
+                            ]}
                           >
                             {nombreProd}
                           </Text>
-                        </View>
-                        <View
-                          style={{
-                            flex: 1,
-                            alignItems: "flex-end",
-                            justifyContent: "center",
-                            paddingHorizontal: 10,
-                          }}
-                        >
                           <Text style={styles.quantityMobile}>
                             Cantidad: {fila.cantidad} uds.
                           </Text>
                         </View>
                         <View
                           style={{
-                            flex: 0.8,
+                            flex: 1,
                             alignItems: "flex-end",
-                            justifyContent: "center",
                             paddingLeft: 10,
                           }}
                         >
@@ -691,7 +682,7 @@ export default function StockRevendedorScreen() {
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.modalOverlay}>
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Registrar Venta</Text>
             <Text style={styles.label}>Unidades a marcar como vendidas:</Text>
@@ -716,7 +707,7 @@ export default function StockRevendedorScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </BlurView>
       </Modal>
 
       {/* MODAL DEVOLVER */}
@@ -725,7 +716,7 @@ export default function StockRevendedorScreen() {
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.modalOverlay}>
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Registrar Devolución</Text>
             <Text style={styles.label}>
@@ -754,7 +745,7 @@ export default function StockRevendedorScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </BlurView>
       </Modal>
 
       {/* MODAL CREAR / EDITAR REVENDEDOR */}
@@ -763,7 +754,7 @@ export default function StockRevendedorScreen() {
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.modalOverlay}>
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>
               {modalEditarRevVisible ? "Editar Revendedor" : "Nuevo Revendedor"}
@@ -897,7 +888,7 @@ export default function StockRevendedorScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </BlurView>
       </Modal>
 
       {/* MODAL ASIGNAR STOCK */}
@@ -906,7 +897,7 @@ export default function StockRevendedorScreen() {
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.modalOverlay}>
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Asignar Stock</Text>
             <Text style={styles.label}>Revendedor *</Text>
@@ -994,7 +985,7 @@ export default function StockRevendedorScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </BlurView>
       </Modal>
 
       {/* SELECTOR */}
@@ -1003,7 +994,7 @@ export default function StockRevendedorScreen() {
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.modalOverlay}>
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
           <View style={[styles.modalBox, { maxHeight: "80%" }]}>
             <Text style={styles.modalTitle}>
               Seleccionar{" "}
@@ -1043,7 +1034,7 @@ export default function StockRevendedorScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </BlurView>
       </Modal>
 
       {/* IMPRIMIR */}
@@ -1052,7 +1043,7 @@ export default function StockRevendedorScreen() {
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.modalOverlay}>
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Imprimir Reporte</Text>
             <View style={styles.roleSelectionGroup}>
@@ -1179,7 +1170,7 @@ export default function StockRevendedorScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </BlurView>
       </Modal>
     </View>
   );
@@ -1342,13 +1333,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#d1fae5",
   },
   badgeTxtVendido: { color: "#047857", fontWeight: "bold", fontSize: 12 },
-  badgeDevuelto: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: "#f1f5f9",
-  },
-  badgeTxtDevuelto: { color: "#64748b", fontWeight: "bold", fontSize: 12 },
   cardMobile: {
     backgroundColor: "#f8fafc",
     borderRadius: 8,
@@ -1375,7 +1359,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
     padding: 16,
   },
   modalBox: {
