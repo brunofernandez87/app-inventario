@@ -3,6 +3,7 @@ import {
   registrarMovimientoManual,
 } from "@/service/movimiento_stock";
 import { obtenerProductosParaAsignar } from "@/service/stock_revendedor";
+import { BlurView } from "expo-blur";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -366,43 +367,51 @@ export default function MovimientosScreen() {
         transparent={true}
         animationType="fade"
       >
-        <TouchableOpacity
-          style={styles.modalOverlayLigero}
-          activeOpacity={1}
-          onPress={() => setModalFiltroVisible(false)}
-        >
-          <View style={[styles.modalBoxFiltro, { paddingVertical: 20 }]}>
-            <Text style={[styles.modalTitle, { paddingHorizontal: 24 }]}>
-              Filtrar por tipo
-            </Text>
-            {opcionesFiltro.map((opcion) => (
-              <TouchableOpacity
-                key={opcion}
-                style={[
-                  styles.selectorItem,
-                  { paddingHorizontal: 24 },
-                  filtroTipo === opcion && { backgroundColor: "#eff6ff" },
-                ]}
-                onPress={() => {
-                  setFiltroTipo(opcion);
-                  setModalFiltroVisible(false);
-                }}
-              >
-                <Text
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlayLigero}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              width: "100%",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 16,
+            }}
+            activeOpacity={1}
+            onPress={() => setModalFiltroVisible(false)}
+          >
+            <View style={[styles.modalBoxFiltro, { paddingVertical: 20 }]}>
+              <Text style={[styles.modalTitle, { paddingHorizontal: 24 }]}>
+                Filtrar por tipo
+              </Text>
+              {opcionesFiltro.map((opcion) => (
+                <TouchableOpacity
+                  key={opcion}
                   style={[
-                    styles.selectorItemTxt,
-                    filtroTipo === opcion && {
-                      color: "#2563eb",
-                      fontWeight: "bold",
-                    },
+                    styles.selectorItem,
+                    { paddingHorizontal: 24 },
+                    filtroTipo === opcion && { backgroundColor: "#eff6ff" },
                   ]}
+                  onPress={() => {
+                    setFiltroTipo(opcion);
+                    setModalFiltroVisible(false);
+                  }}
                 >
-                  {opcion}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.selectorItemTxt,
+                      filtroTipo === opcion && {
+                        color: "#2563eb",
+                        fontWeight: "bold",
+                      },
+                    ]}
+                  >
+                    {opcion}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </BlurView>
       </Modal>
 
       <Modal
@@ -410,7 +419,7 @@ export default function MovimientosScreen() {
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.modalOverlayOscuro}>
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlayOscuro}>
           <View style={styles.modalBox}>
             <Text
               style={[
@@ -471,7 +480,7 @@ export default function MovimientosScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </BlurView>
       </Modal>
 
       <Modal
@@ -479,7 +488,7 @@ export default function MovimientosScreen() {
         transparent={true}
         animationType="fade"
       >
-        <View style={styles.modalOverlayOscuro}>
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlayOscuro}>
           <View style={[styles.modalBox, { maxHeight: "80%" }]}>
             <Text style={styles.modalTitle}>Seleccionar Producto</Text>
             <FlatList
@@ -509,7 +518,7 @@ export default function MovimientosScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </BlurView>
       </Modal>
     </View>
   );
@@ -622,16 +631,11 @@ const styles = StyleSheet.create({
 
   modalOverlayLigero: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.4)",
-    padding: 16,
   },
   modalOverlayOscuro: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
     padding: 16,
   },
   modalBoxFiltro: {

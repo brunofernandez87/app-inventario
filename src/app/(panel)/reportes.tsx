@@ -3,10 +3,12 @@ import {
   obtenerProyeccionesYRentabilidad,
   obtenerResumenMensual,
 } from "@/service/reporte_mensual";
+import { imprimirPDF } from "@/utils/impresora";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   LogBox,
   Platform,
   ScrollView,
@@ -105,6 +107,162 @@ export default function ReportesScreen() {
       cargarReportes();
     }, []),
   );
+
+  const generarPDF = async () => {
+    try {
+      setLoading(true);
+
+      let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              @page { size: auto; margin: 10mm; }
+              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #334155; }
+              h1 { color: #0f172a; text-align: left; margin-bottom: 5px; font-size: 24px; }
+              .fecha { text-align: left; color: #64748b; font-size: 13px; margin-bottom: 30px; }
+              
+              /* Cajas de resumen superior (Solo para mensual y rentabilidad) */
+              .summary-container { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 30px; }
+              .summary-box { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; flex: 1; text-align: left; }
+              .summary-box-green { background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 15px; border-radius: 8px; flex: 1; text-align: left; }
+              .summary-box h3, .summary-box-green h3 { margin: 0; font-size: 11px; color: #64748b; text-transform: uppercase; }
+              .summary-box p { margin: 8px 0 0 0; font-size: 20px; font-weight: bold; color: #0f172a; }
+              .summary-box-green p { margin: 8px 0 0 0; font-size: 20px; font-weight: bold; color: #16a34a; }
+              
+              /* Tablas clásicas perfectas */
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; border: 1px solid #cbd5e1; }
+              th, td { border: 1px solid #cbd5e1; padding: 12px 10px; text-align: left; }
+              th { background-color: #ffffff; color: #64748b; font-weight: bold; text-transform: uppercase; font-size: 11px; }
+              tr:nth-child(even) { background-color: #f8fafc; }
+              .val-green { color: #16a34a; font-weight: bold; }
+              
+              /* Badges (Etiquetas de color) */
+              .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; display: inline-block; }
+              .ok { background-color: #d1fae5; color: #047857; }
+              .bajo { background-color: #fef3c7; color: #b45309; }
+              .sin { background-color: #f1f5f9; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <div class="fecha">Generado el ${new Date().toLocaleDateString("es-AR")}</div>
+      `;
+
+      if (tabActiva === "Resumen Mensual") {
+        const labelsInvertidos = [...historialGraficos.labels].reverse();
+        const transaccionesInvertidas = [
+          ...historialGraficos.transacciones,
+        ].reverse();
+        const gananciasInvertidas = [...historialGraficos.ganancias].reverse();
+
+        htmlContent += `
+            <h1>Reporte de Resumen Mensual</h1>
+            <div class="summary-container">
+              <div class="summary-box"><h3>Ventas del Mes</h3><p>${datosMensuales.transacciones}</p></div>
+              <div class="summary-box"><h3>Prod. Vendidos</h3><p>${datosMensuales.unidadesVendidas}</p></div>
+              <div class="summary-box"><h3>Costos Totales</h3><p>$ ${datosMensuales.costosTotales.toLocaleString("es-AR")}</p></div>
+              <div class="summary-box"><h3>Ganancia Neta</h3><p>$ ${datosMensuales.gananciaNeta.toLocaleString("es-AR")}</p></div>
+            </div>
+            <h2 style="color: #0f172a; margin-top: 30px; font-size: 18px; text-align:left;">Desglose Mes a Mes</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Mes</th>
+                  <th style="text-align: center;">Transacciones</th>
+                  <th style="text-align: right;">Ingresos Totales</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        labelsInvertidos.forEach((mes, index) => {
+          const transacciones = transaccionesInvertidas[index];
+          const ganancias = gananciasInvertidas[index];
+          htmlContent += `
+            <tr>
+              <td><strong>${mes} ${index === 0 ? "(Actual)" : ""}</strong></td>
+              <td style="text-align: center;">${transacciones} ventas</td>
+              <td style="text-align: right;" class="val-green">$ ${ganancias.toLocaleString("es-AR")}</td>
+            </tr>
+          `;
+        });
+        htmlContent += `</tbody></table>`;
+      } else if (tabActiva === "Proyecciones") {
+        htmlContent += `
+            <h1>Proyección por Producto</h1>
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th style="text-align:center;">Stock actual</th>
+                  <th style="text-align:center;">Prom. mensual</th>
+                  <th style="text-align:center;">Meses restantes</th>
+                  <th style="text-align:center;">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+        proyecciones.forEach((prod) => {
+          const claseEstado =
+            prod.estado === "OK"
+              ? "ok"
+              : prod.estado === "Bajo"
+                ? "bajo"
+                : "sin";
+          htmlContent += `
+            <tr>
+              <td><strong>${prod.nombre}</strong><br><span style="color:#64748b; font-size:11px;">${prod.codigo}</span></td>
+              <td style="text-align:center;"><strong>${prod.stock}</strong> uds.</td>
+              <td style="text-align:center;"><strong>${prod.prom}</strong></td>
+              <td style="text-align:center;"><strong>${prod.meses}</strong></td>
+              <td style="text-align:center;"><span class="badge ${claseEstado}">${prod.estado}</span></td>
+            </tr>
+          `;
+        });
+        htmlContent += `</tbody></table>`;
+      } else if (tabActiva === "Rentabilidad") {
+        htmlContent += `
+            <h1>Rentabilidad por Producto</h1>
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th style="text-align:center;">Costo</th>
+                  <th style="text-align:center;">Precio Venta</th>
+                  <th style="text-align:center;">Ganancia ud.</th>
+                  <th style="text-align:center;">Margen</th>
+                  <th style="text-align:center;">Stock</th>
+                  <th style="text-align:right;">Val. Costo total</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+        rentabilidad.forEach((prod) => {
+          htmlContent += `
+            <tr>
+              <td><strong>${prod.nombre}</strong><br><span style="color:#64748b; font-size:11px;">${prod.codigoMarca}</span></td>
+              <td style="text-align:center;">$ ${prod.costo.toLocaleString("es-AR")}</td>
+              <td style="text-align:center;">$ ${prod.precio.toLocaleString("es-AR")}</td>
+              <td style="text-align:center;" class="val-green">$ ${prod.ganancia.toLocaleString("es-AR")}</td>
+              <td style="text-align:center;"><span class="badge ok">${prod.margen}</span></td>
+              <td style="text-align:center;"><strong>${prod.stock}</strong> uds.</td>
+              <td style="text-align:right; font-weight:bold;">$ ${prod.valCosto.toLocaleString("es-AR")}</td>
+            </tr>
+          `;
+        });
+        htmlContent += `</tbody></table>`;
+      }
+
+      htmlContent += `</body></html>`;
+
+      await imprimirPDF(htmlContent);
+    } catch (error) {
+      Alert.alert("Error", "No se pudo generar el documento PDF.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const CardIndicador = ({ titulo, valor, subtitulo }: any) => (
     <View style={[styles.card, { flex: 1, minWidth: 140 }]}>
@@ -722,6 +880,7 @@ export default function ReportesScreen() {
                           </Text>
                         </Text>
                       </View>
+
                       <View style={[styles.cardRowMobile, { marginTop: 8 }]}>
                         <Text style={styles.rowTxtBase}>
                           Stock:{" "}
@@ -765,7 +924,7 @@ export default function ReportesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.tituloPrincipal}>Reportes</Text>
-        <TouchableOpacity style={styles.btnImprimirGlobal}>
+        <TouchableOpacity style={styles.btnImprimirGlobal} onPress={generarPDF}>
           <Text style={styles.txtImprimirGlobal}>Imprimir / PDF</Text>
         </TouchableOpacity>
       </View>
@@ -829,7 +988,7 @@ const styles = StyleSheet.create({
   },
   tituloPrincipal: { fontSize: 28, fontWeight: "bold", color: "#0f172a" },
   btnImprimirGlobal: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ffffff",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
