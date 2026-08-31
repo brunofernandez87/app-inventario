@@ -19,7 +19,24 @@ export interface Producto {
   ventas_promedio_mensual?: number;
   fecha_creacion?: string;
 }
-
+export interface Venta {
+  id_venta: number;
+  id_empresa: number;
+  fecha_venta: string;
+  id_usuario: number;
+  total: number;
+  estado: string;
+  cliente: string;
+}
+export interface DetalleVenta {
+  id_detalle: number;
+  id_venta: number;
+  id_producto: number;
+  cantidad: number;
+  es_paquete_cerrado: boolean;
+  precio_unitario: number;
+  subtotal: number;
+}
 export interface Empresa {
   id_empresa: number;
   nombre_empresa: string;
