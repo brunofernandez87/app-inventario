@@ -1,4 +1,6 @@
+import { useEmpresa } from "@/context/empresaContext";
 import { useListaVenta } from "@/context/listaVentaContext";
+import { obtenerDetalleVenta } from "@/service/detalle_venta";
 import { Stack } from "expo-router";
 import { useCallback } from "react";
 import {
@@ -9,6 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
+import DetalleVenta from "./detalleVenta";
 
 export default function Venta() {
   const { listaVenta, cargando } = useListaVenta();
@@ -16,14 +19,31 @@ export default function Venta() {
     (item: any) => item.id_venta.toString(),
     [],
   );
+  const { empresa } = useEmpresa();
+  const buscarDetalle = async (id: number) => {
+    const resultado = await obtenerDetalleVenta(id, empresa?.id_empresa);
+    if (resultado != null) {
+      DetalleVenta(resultado);
+    } else {
+      console.error("no se encontro el detalle venta");
+    }
+  };
   const renderItem = useCallback(({ item }: { item: any }) => {
+    const fechaFormateada = new Date(item.fecha_venta).toLocaleDateString(
+      "es-AR",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      },
+    );
     return (
       <Pressable
         style={({ pressed }) => [
           styles.fila,
           pressed && { backgroundColor: "#f8fafc" },
         ]}
-        onPress={() => console.log("Abrir detalle de venta:", item.id_venta)}
+        onPress={() => buscarDetalle(item.id_venta)}
       >
         <View style={[styles.celda, { width: 60 }]}>
           <Text style={styles.textoSecundario}>#{item.id_venta}</Text>
@@ -32,11 +52,11 @@ export default function Venta() {
         {/* Fecha */}
         <View style={[styles.celda, { width: 140 }]}>
           <Text style={styles.textoPrincipal} numberOfLines={1}>
-            {item.fecha_venta}
+            {fechaFormateada}
           </Text>
         </View>
 
-        {/* Cliente y Usuario */}
+        {/* Cliente */}
         <View style={[styles.celda, { flex: 1, minWidth: 150 }]}>
           <Text
             style={[styles.textoPrincipal, { fontSize: 14 }]}
@@ -44,8 +64,11 @@ export default function Venta() {
           >
             {item.cliente || "Cliente"}
           </Text>
+        </View>
+        {/* Usuario */}
+        <View style={[styles.celda, { flex: 1, minWidth: 120 }]}>
           <Text style={styles.textoSecundario} numberOfLines={1}>
-            Usuario: {item.id_usuario}
+            {item.usuario.nombre_usuario}
           </Text>
         </View>
 
@@ -73,6 +96,7 @@ export default function Venta() {
   return (
     <View style={{ flex: 1, padding: 20 }}>
       <Stack.Screen options={{ title: "Historial de Ventas" }} />
+      <Text style={styles.titulo}>Historial de ventas</Text>
       {cargando ? (
         <Text style={styles.textoMensaje}>Cargando...</Text>
       ) : listaVenta.length === 0 ? (
@@ -80,7 +104,7 @@ export default function Venta() {
       ) : (
         <View style={styles.contenedorTabla}>
           <ScrollView horizontal={true} style={{ flex: 1 }}>
-            <View>
+            <View style={{ minWidth: 800, width: "100%" }}>
               <View style={styles.encabezadoRow}>
                 <Text style={[styles.celdaEncabezado, { width: 60 }]}>#</Text>
                 <Text style={[styles.celdaEncabezado, { width: 140 }]}>
@@ -91,18 +115,17 @@ export default function Venta() {
                 >
                   Cliente
                 </Text>
+                <Text
+                  style={[styles.celdaEncabezado, { flex: 1, minWidth: 120 }]}
+                >
+                  Realizada por
+                </Text>
                 <Text style={[styles.celdaEncabezado, { width: 120 }]}>
                   Total
                 </Text>
                 <Text style={[styles.celdaEncabezado, { width: 120 }]}>
                   Estado
                 </Text>
-                <Text
-                  style={[
-                    styles.celdaEncabezado,
-                    { width: 100, textAlign: "right" },
-                  ]}
-                ></Text>
               </View>
               <FlatList
                 // flatList ya viene con scroll view y podes limitar las columnas con num columns
@@ -125,6 +148,13 @@ export default function Venta() {
   );
 }
 const styles = StyleSheet.create({
+  titulo: {
+    fontSize: 40,
+    fontWeight: "600",
+    textAlign: "left",
+    color: "#1e293b",
+    marginBottom: 10,
+  },
   contenedorTabla: {
     flex: 1,
     backgroundColor: "#ffffff",

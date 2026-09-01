@@ -1,21 +1,16 @@
-import { useEmpresa } from "@/context/empresaContext";
-import { obtenerDetalleVenta } from "@/service/detalle_venta";
+import { DetalleVenta } from "@/types/types";
 import { Text, View } from "react-native";
 
-export default function DetalleVenta(id: number) {
-  const { empresa } = useEmpresa();
-  const buscarDetalle = async () => {
-    const resultado = await obtenerDetalleVenta(id, empresa?.id_empresa);
-    if (resultado != null) {
-      return resultado;
-    } else {
-      console.error("no se encontro el detalle venta");
-    }
-  };
+export default function DetalleVenta(DetalleVenta: DetalleVenta) {
   return (
     <View>
+      <Text>Detalle de la venta numero {DetalleVenta.id_venta}</Text>
       <View>
-        <Text>Hey</Text>
+        <Text>Nombre del producto{DetalleVenta.id_producto}</Text>
+        <Text>Es paquete cerrado: {DetalleVenta.es_paquete_cerrado}</Text>
+        <Text>Cantidad: {DetalleVenta.cantidad}</Text>
+        <Text>Precio Unitario {DetalleVenta.precio_unitario}</Text>
+        <Text>Total {DetalleVenta.subtotal}</Text>
       </View>
     </View>
   );

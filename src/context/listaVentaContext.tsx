@@ -1,4 +1,4 @@
-import { obtenerVentas } from "@/service/venta";
+import { obtenerVentasUsuario } from "@/service/venta";
 import { createContext, useContext, useEffect, useState } from "react";
 import { useEmpresa } from "./empresaContext";
 const ListaVentaContext = createContext(null);
@@ -12,7 +12,7 @@ export function ListaVentaProvider({ children }) {
     }
     setCargando(true);
     try {
-      const data = await obtenerVentas(empresa.id_empresa);
+      const data = await obtenerVentasUsuario(empresa.id_empresa);
       setListaVenta(data);
     } catch (error) {
       console.error("Error cargando ventas:", error);
