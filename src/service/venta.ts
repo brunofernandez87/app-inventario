@@ -17,6 +17,23 @@ export const obtenerVentas = async (id_empresa: number) => {
     return [];
   }
 };
+
+export const obtenerVentasUsuario = async (id_empresa: number) => {
+  try {
+    const { data, error } = await supabase
+      .from("venta")
+      .select("*,usuario(nombre_usuario)")
+      .eq("id_empresa", id_empresa);
+    if (error) {
+      console.error("Error en la base de datos", error.message);
+      return [];
+    }
+    return data || [];
+  } catch (error) {
+    console.error("Error de conexion/ejecucion", error);
+    return [];
+  }
+};
 export const obtenerVenta = async (id: number, id_empresa: number) => {
   try {
     const { data, error } = await supabase
