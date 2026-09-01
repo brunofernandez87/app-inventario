@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import DetalleVenta from "./detalleVenta";
 
 export default function Venta() {
   const { listaVenta, cargando } = useListaVenta();
@@ -31,7 +32,7 @@ export default function Venta() {
           styles.fila,
           pressed && { backgroundColor: "#f8fafc" },
         ]}
-        onPress={() => console.log("Abrir detalle de venta:", item.id_venta)}
+        onPress={() => DetalleVenta(item.id_venta)}
       >
         <View style={[styles.celda, { width: 60 }]}>
           <Text style={styles.textoSecundario}>#{item.id_venta}</Text>
