@@ -291,71 +291,127 @@ export default function ListaProductos() {
               : "No hay productos cargados en tu inventario."}{" "}
         </Text>
       ) : (
-        <View
-          style={{
-            flex: 1,
-            flexDirection: celular ? "column" : "row",
-            gap: 20,
-          }}
-        >
-          <View
-            style={[
-              styles.contenedorTabla,
-              {
-                flex: celular ? 1 : 2,
-              },
-            ]}
-          >
-            <ScrollView horizontal={true} style={{ flex: 1 }}>
-              <View style={{ flex: 1 }}>
-                <View style={styles.encabezadoRow}>
-                  <Text style={[styles.celdaEncabezado, { width: 140 }]}>
-                    Código
-                  </Text>
-                  <Text style={[styles.celdaEncabezado, { width: 250 }]}>
-                    Producto
-                  </Text>
-                  <Text style={[styles.celdaEncabezado, { width: 120 }]}>
-                    Ubicacion
-                  </Text>
-                  <Text style={[styles.celdaEncabezado, { width: 100 }]}>
-                    Costo
-                  </Text>
+        <View style={{ flex: 1 }}>
+          {celular ? (
+            // ==========================================
+            // VISTA CELULAR: Scroll vertical global
+            // ==========================================
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 20, gap: 20 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* CAJA PRODUCTOS: Altura fija de 450px para scrollear adentro */}
+              <View style={[styles.contenedorTabla, { height: 450 }]}>
+                <ScrollView horizontal={true} style={{ flex: 1 }}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.encabezadoRow}>
+                      <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                        Código
+                      </Text>
+                      <Text style={[styles.celdaEncabezado, { width: 250 }]}>
+                        Producto
+                      </Text>
+                      <Text style={[styles.celdaEncabezado, { width: 120 }]}>
+                        Ubicacion
+                      </Text>
+                      <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                        Costo
+                      </Text>
+                      <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                        Precio
+                      </Text>
+                      <Text style={[styles.celdaEncabezado, { width: 90 }]}>
+                        Margen
+                      </Text>
+                      <Text
+                        style={[
+                          styles.celdaEncabezado,
+                          { width: 100, textAlign: "center" },
+                        ]}
+                      >
+                        Stock
+                      </Text>
+                    </View>
+                    <FlatList
+                      data={lista}
+                      keyExtractor={memoizedKeyExtractor}
+                      renderItem={renderItem}
+                      initialNumToRender={15}
+                      maxToRenderPerBatch={10}
+                      windowSize={5}
+                      nestedScrollEnabled={true} // <-- FUNDAMENTAL PARA CELULARES
+                    />
+                  </View>
+                </ScrollView>
+              </View>
 
-                  <Text style={[styles.celdaEncabezado, { width: 100 }]}>
-                    Precio
-                  </Text>
-                  <Text style={[styles.celdaEncabezado, { width: 90 }]}>
-                    Margen
-                  </Text>
-                  <Text
-                    style={[
-                      styles.celdaEncabezado,
-                      { width: 100, textAlign: "center" },
-                    ]}
-                  >
-                    Stock
-                  </Text>
-                </View>
-                <FlatList
-                  // flatList ya viene con scroll view y podes limitar las columnas con num columns
-                  // es el arreglo que va a recorrer
-                  data={lista}
-                  // sirve para saber cual es la clave de cada fila tiene que ser string lo que se pasa en key extractor
-                  keyExtractor={memoizedKeyExtractor}
-                  // se le muestra como muestra el item desestructurandolo
-                  renderItem={renderItem}
-                  // Optimizaciones extra para FlatList con muchos datos:
-                  initialNumToRender={15}
-                  maxToRenderPerBatch={10}
-                  windowSize={5}
-                />
+              {/* CAJA CARRITO: Queda abajo y toma su altura natural */}
+              <View style={[styles.contenedorTabla, { minHeight: 400 }]}>
+                <Carrito />
               </View>
             </ScrollView>
-          </View>
-          <View style={styles.contenedorTabla}>
-            <Carrito />
-          </View>
+          ) : (
+            <View
+              style={{
+                flex: 1,
+                flexDirection: celular ? "column" : "row",
+                gap: 20,
+              }}
+            >
+              <View style={{ flex: 1, flexDirection: "row", gap: 20 }}>
+                <ScrollView horizontal={true} style={{ flex: 1 }}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.encabezadoRow}>
+                      <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                        Código
+                      </Text>
+                      <Text style={[styles.celdaEncabezado, { width: 250 }]}>
+                        Producto
+                      </Text>
+                      <Text style={[styles.celdaEncabezado, { width: 120 }]}>
+                        Ubicacion
+                      </Text>
+                      <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                        Costo
+                      </Text>
+
+                      <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                        Precio
+                      </Text>
+                      <Text style={[styles.celdaEncabezado, { width: 90 }]}>
+                        Margen
+                      </Text>
+                      <Text
+                        style={[
+                          styles.celdaEncabezado,
+                          { width: 100, textAlign: "center" },
+                        ]}
+                      >
+                        Stock
+                      </Text>
+                    </View>
+                    <FlatList
+                      // flatList ya viene con scroll view y podes limitar las columnas con num columns
+                      // es el arreglo que va a recorrer
+                      data={lista}
+                      // sirve para saber cual es la clave de cada fila tiene que ser string lo que se pasa en key extractor
+                      keyExtractor={memoizedKeyExtractor}
+                      // se le muestra como muestra el item desestructurandolo
+                      renderItem={renderItem}
+                      // Optimizaciones extra para FlatList con muchos datos:
+                      initialNumToRender={15}
+                      maxToRenderPerBatch={10}
+                      windowSize={5}
+                    />
+                  </View>
+                </ScrollView>
+              </View>
+              <View style={[styles.contenedorTabla, { flex: 1 }]}>
+                <Carrito />
+              </View>
+            </View>
+          )}
         </View>
       )}
       <Modal
