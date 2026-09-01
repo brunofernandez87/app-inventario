@@ -1,15 +1,31 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 export default function EscanerModal({ visible, alCerrar, alEscanear }) {
   const [permisos, solicitarPermisos] = useCameraPermissions();
+  const [procesando, setProcesando] = useState(false);
 
   // Si el modal se abre y no hay permisos, los pedimos automáticamente
   useEffect(() => {
     if (visible && permisos && !permisos.granted) {
       solicitarPermisos();
     }
+    // Cada vez que se abre la cámara, nos aseguramos de que no esté "procesando"
+    if (visible) {
+      setProcesando(false);
+    }
   }, [visible]);
+
+  const manejarEscaneo = ({ data }) => {
+    if (procesando) return; // Si ya está leyendo un código, ignora los demás
+
+    setProcesando(true); // Activa el freno
+
+    // Espera medio segundo (500 milisegundos) antes de cerrar la cámara
+    setTimeout(() => {
+      alEscanear(data);
+    }, 1000);
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
@@ -19,11 +35,15 @@ export default function EscanerModal({ visible, alCerrar, alEscanear }) {
             style={styles.camara}
             facing="back"
             // Cuando detecta un código, ejecuta la función que le pasamos desde la pantalla principal
-            onBarcodeScanned={({ data }) => alEscanear(data)}
-            barcodeScannerSettings={{
+            onBarcodeScanned={manejarEscaneo} barcodeScannerSettings={{
               barcodeTypes: ["qr", "ean13", "ean8", "code128"],
             }}
           />
+          {procesando && (
+            <View style={styles.cartelExito}>
+              <Text style={styles.textoExito}>¡Código detectado!</Text>
+            </View>
+          )}
           <View style={styles.contenedorBotonFlotante}>
             <TouchableOpacity style={styles.botonCerrar} onPress={alCerrar}>
               <Text style={styles.textoBoton}>Cancelar Escaneo</Text>
@@ -79,5 +99,20 @@ const styles = StyleSheet.create({
   textoBoton: { color: 'white', fontWeight: 'bold', fontSize: 16 },
   contenedorCentro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   textoCentro: { fontSize: 16, marginBottom: 20, textAlign: 'center' },
-  botonPermiso: { backgroundColor: '#007AFF', padding: 15, borderRadius: 10, marginBottom: 15, width: '80%', alignItems: 'center' }
+  botonPermiso: { backgroundColor: '#007AFF', padding: 15, borderRadius: 10, marginBottom: 15, width: '80%', alignItems: 'center' },
+  cartelExito: {
+    position: 'absolute',
+    top: '40%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.9)',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+  },
+  textoExito: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+  }
+
 });

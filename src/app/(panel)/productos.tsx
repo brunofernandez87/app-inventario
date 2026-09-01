@@ -6,25 +6,29 @@ import {
   obtenerAlertaProyeccion,
   obtenerStockBajo,
 } from "@/service/producto";
+import { Producto } from "@/types/types";
 import { BlurView } from "expo-blur";
 import { Stack } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
+  useWindowDimensions
 } from "react-native";
 import { imprimirPDF } from "../../utils/impresora";
+import EscanerModal from "../escaner/escanerModal";
 import Carrito from "../producto/carrito";
 import CodigoProducto from "../producto/codigoProducto";
 import CreacionProducto from "../producto/crearProducto";
 import EditarProducto from "../producto/editarProducto";
 import VentanaConfirmacion from "../ventanaConfirmacion";
+
 export default function ListaProductos() {
   const { width } = useWindowDimensions();
   const celular = width < 768;
@@ -34,7 +38,6 @@ export default function ListaProductos() {
   const [opcionesVisible, setOpcionesVisible] = useState(false);
   const { listaProducto, cargando, fetchProducts } = useListaProducto();
   const [modalElminar, setModalEliminar] = useState(false);
-  const [modalCodigo, setModalCodigo] = useState(false);
   const { agregarAlCarrito } = useListaCarrito();
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
@@ -50,9 +53,9 @@ export default function ListaProductos() {
       const margen =
         item.costo_compra > 0
           ? Math.round(
-              ((item.precio_venta - item.costo_compra) / item.costo_compra) *
-                100,
-            )
+            ((item.precio_venta - item.costo_compra) / item.costo_compra) *
+            100,
+          )
           : 0;
       return (
         <Pressable
@@ -126,6 +129,27 @@ export default function ListaProductos() {
     },
     [agregarAlCarrito],
   );
+
+  const [modalCodigo, setModalCodigo] = useState(false);
+  const [mostrarEscaner, setMostrarEscaner] = useState(false);
+
+  // procesa la lectura
+  const procesarCodigoLeido = (codigo) => {
+    setMostrarEscaner(false);
+
+    // Buscamos el producto en tu lista actual por código de barras o alfanumérico
+    const productoEncontrado = listaProducto.find(
+      (item: Producto) => item.codigo_barras === codigo || item.codigo_alfanumerico === codigo
+    );
+
+    if (productoEncontrado) {
+      // Si lo encuentra, abrimos la tarjeta de opciones de ese producto
+      abrirOpciones(productoEncontrado);
+    } else {
+      alert("Producto no encontrado en el inventario.");
+    }
+  };
+
   const [filterStockBajo, setFilterStockBajo] = useState(false);
   const [filterAlerta, setFilterAlerta] = useState(false);
   const stockBajo = async () => {
@@ -185,9 +209,9 @@ export default function ListaProductos() {
           <tr>
       <td>${item.nombre_producto || "-"}</td>
       <td>${item.marca || "-"}</td>
-   <td>$${precio.toFixed(2)}</td>
-         <td>${unidades}</td>
-         <td>$${totalBonificado.toFixed(2)}</td>
+  <td>$${precio.toFixed(2)}</td>
+        <td>${unidades}</td>
+        <td>$${totalBonificado.toFixed(2)}</td>
     </tr>
   `;
       })
@@ -279,6 +303,10 @@ export default function ListaProductos() {
               : "☐ Solo productos con alerta"}
           </Text>
         </Pressable>
+        {Platform.OS !== "web" && (
+          <Pressable onPress={() => setMostrarEscaner(true)} style={[styles.botonToolbar, { backgroundColor: '#3b82f6' }]}>
+            <Text style={[styles.textoBotonToolbar, { color: 'white' }]}>📷 Escanear</Text>
+          </Pressable>)}
       </View>
       {cargando ? (
         <Text>Cargando...</Text>
@@ -543,6 +571,11 @@ export default function ListaProductos() {
           </View>
         </BlurView>
       </Modal>
+      <EscanerModal
+        visible={mostrarEscaner}
+        alCerrar={() => setMostrarEscaner(false)}
+        alEscanear={procesarCodigoLeido}
+      />
     </View>
   );
 }
