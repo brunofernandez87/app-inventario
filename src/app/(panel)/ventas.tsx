@@ -1,4 +1,6 @@
+import { useEmpresa } from "@/context/empresaContext";
 import { useListaVenta } from "@/context/listaVentaContext";
+import { obtenerDetalleVenta } from "@/service/detalle_venta";
 import { Stack } from "expo-router";
 import { useCallback } from "react";
 import {
@@ -17,6 +19,15 @@ export default function Venta() {
     (item: any) => item.id_venta.toString(),
     [],
   );
+  const { empresa } = useEmpresa();
+  const buscarDetalle = async (id: number) => {
+    const resultado = await obtenerDetalleVenta(id, empresa?.id_empresa);
+    if (resultado != null) {
+      DetalleVenta(resultado);
+    } else {
+      console.error("no se encontro el detalle venta");
+    }
+  };
   const renderItem = useCallback(({ item }: { item: any }) => {
     const fechaFormateada = new Date(item.fecha_venta).toLocaleDateString(
       "es-AR",
@@ -32,7 +43,7 @@ export default function Venta() {
           styles.fila,
           pressed && { backgroundColor: "#f8fafc" },
         ]}
-        onPress={() => DetalleVenta(item.id_venta)}
+        onPress={() => buscarDetalle(item.id_venta)}
       >
         <View style={[styles.celda, { width: 60 }]}>
           <Text style={styles.textoSecundario}>#{item.id_venta}</Text>
