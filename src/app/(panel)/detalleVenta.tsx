@@ -6,6 +6,7 @@ export default function DetalleVenta(DetalleVenta: DetalleVenta) {
     <View>
       <Text>Detalle de la venta numero {DetalleVenta.id_venta}</Text>
       <View>
+        <Text>Nombre del producto{DetalleVenta.id_producto}</Text>
         <Text>Es paquete cerrado: {DetalleVenta.es_paquete_cerrado}</Text>
         <Text>Cantidad: {DetalleVenta.cantidad}</Text>
         <Text>Precio Unitario {DetalleVenta.precio_unitario}</Text>
