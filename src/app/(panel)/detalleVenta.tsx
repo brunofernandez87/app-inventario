@@ -54,7 +54,7 @@ export default function VentaDetalle() {
         {/* Precio */}
         <View style={{ flex: 2 }}>
           <Text style={styles.textoNormal}>
-            $ {Number(item.precio_unitario || 0).toFixed(2)}
+            ${Number(item.precio_unitario || 0).toFixed(2)}
           </Text>
         </View>
 
@@ -64,7 +64,7 @@ export default function VentaDetalle() {
             style={[styles.textoPrincipal, { color: "#15803d" }]}
             numberOfLines={2}
           >
-            {item.subtotal || "Desconocido"}
+            ${item.subtotal || "Desconocido"}
           </Text>
         </View>
       </View>
