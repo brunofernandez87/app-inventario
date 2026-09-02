@@ -4,7 +4,7 @@ export const obtenerDetallesPorVenta = async (id_venta: number) => {
   try {
     const { data, error } = await supabase
       .from("detalle_venta")
-      .select("*")
+      .select("*, producto(nombre_producto,id_medida, medida(nombre_tipo))")
       .eq("id_venta", id_venta);
     if (error) {
       console.error("Error en la base de datos", error.message);

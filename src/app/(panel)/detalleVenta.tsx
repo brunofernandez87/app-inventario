@@ -33,7 +33,7 @@ export default function VentaDetalle() {
         {/* Producto */}
         <View style={{ flex: 4 }}>
           <Text style={styles.textoPrincipal}>
-            Producto ID: {item.id_producto}
+            Producto: {item.producto.nombre_producto}
           </Text>
         </View>
         {/* Cantidad */}
@@ -45,7 +45,9 @@ export default function VentaDetalle() {
         {/* Paquete cerrado */}
         <View style={{ flex: 1.5 }}>
           <Text style={styles.textoNormal} numberOfLines={1}>
-            {item.es_paquete_cerrado ? "Paquete" : "Suelto"}
+            {item.es_paquete_cerrado
+              ? "Paquete"
+              : item.producto.medida.nombre_tipo}
           </Text>
         </View>
 
