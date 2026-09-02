@@ -7,7 +7,8 @@ export const obtenerProductos = async (
     const { data, error } = await supabase
       .from("producto")
       .select("*")
-      .eq("id_empresa", id_empresa);
+      .eq("id_empresa", id_empresa)
+      .order("nombre_producto", { ascending: true });
     if (error) {
       console.error("Error en la base de datos", error.message);
       return [];
