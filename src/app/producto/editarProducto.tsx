@@ -1,8 +1,9 @@
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
+import { getMedidas } from "@/service/medida";
 import { editarProducto } from "@/service/producto";
 import { Picker } from "@react-native-picker/picker";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -26,9 +27,7 @@ export default function EditarProducto({ onClose, producto }) {
   const [precio_venta, setPrecio_venta] = useState(
     producto.precio_venta?.toString() || "",
   );
-  const [medida, setMedida] = useState(
-    producto.id_medida === 2 ? "kilogramo" : "unidad",
-  );
+  const [medida, setMedida] = useState(producto.id_medida);
   const [stock_unidades, setStock_unidades] = useState(
     producto.stock_unidades?.toString() || "",
   );
@@ -45,8 +44,16 @@ export default function EditarProducto({ onClose, producto }) {
     producto.stock_minimo?.toString() || "",
   );
   const { empresa } = useEmpresa();
-  const listaMedida = ["unidad", "kilogramo"];
+  const [listaMedida, setListamedida] = useState([]);
+  console.log(producto);
   const { fetchProducts } = useListaProducto();
+  useEffect(() => {
+    const buscarMedidas = async () => {
+      const medidas = await getMedidas(empresa?.id_empresa);
+      setListamedida(medidas);
+    };
+    buscarMedidas();
+  }, []);
   const cambiarUnidadesPorPaquete = (valor) => {
     setUnidades_paquete(valor);
     const unidsPorPaq = Number(valor);
@@ -90,10 +97,6 @@ export default function EditarProducto({ onClose, producto }) {
       alert("Error al crear producto");
       return;
     }
-    let id_medida = 1;
-    if (medida == "kilogramo") {
-      id_medida = 2;
-    }
     const nuevoProducto = {
       id_producto: producto.id_producto,
       id_empresa: id_empresa,
@@ -104,7 +107,7 @@ export default function EditarProducto({ onClose, producto }) {
       ubicacion: ubicacion,
       costo_compra: Number(costo_compra),
       precio_venta: Number(precio_venta),
-      id_medida: id_medida,
+      id_medida: medida,
       stock_unidades: Number(stock_unidades),
       stock_paquetes: Number(stock_paquetes),
       unidades_por_paquete: Number(unidades_paquete),
@@ -206,7 +209,11 @@ export default function EditarProducto({ onClose, producto }) {
             onValueChange={(itemValue) => setMedida(itemValue)}
           >
             {listaMedida.map((medida) => (
-              <Picker.Item label={medida} value={medida} key={medida} />
+              <Picker.Item
+                label={medida.nombre_tipo}
+                value={medida.id_medida}
+                key={medida.id_medida}
+              />
             ))}
           </Picker>
         </View>
