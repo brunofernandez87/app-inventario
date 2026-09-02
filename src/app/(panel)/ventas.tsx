@@ -1,7 +1,5 @@
-import { useEmpresa } from "@/context/empresaContext";
 import { useListaVenta } from "@/context/listaVentaContext";
-import { obtenerDetalleVenta } from "@/service/detalle_venta";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useCallback } from "react";
 import {
   FlatList,
@@ -11,7 +9,6 @@ import {
   Text,
   View,
 } from "react-native";
-import DetalleVenta from "./detalleVenta";
 
 export default function Venta() {
   const { listaVenta, cargando } = useListaVenta();
@@ -19,15 +16,7 @@ export default function Venta() {
     (item: any) => item.id_venta.toString(),
     [],
   );
-  const { empresa } = useEmpresa();
-  const buscarDetalle = async (id: number) => {
-    const resultado = await obtenerDetalleVenta(id, empresa?.id_empresa);
-    if (resultado != null) {
-      DetalleVenta(resultado);
-    } else {
-      console.error("no se encontro el detalle venta");
-    }
-  };
+
   const renderItem = useCallback(({ item }: { item: any }) => {
     const fechaFormateada = new Date(item.fecha_venta).toLocaleDateString(
       "es-AR",
@@ -43,10 +32,15 @@ export default function Venta() {
           styles.fila,
           pressed && { backgroundColor: "#f8fafc" },
         ]}
-        onPress={() => buscarDetalle(item.id_venta)}
+        onPress={() => {
+          router.push({
+            pathname: "/detalleVenta",
+            params: { id: item.id_venta, ticket: item.numero_ticket },
+          });
+        }}
       >
         <View style={[styles.celda, { width: 60 }]}>
-          <Text style={styles.textoSecundario}>#{item.id_venta}</Text>
+          <Text style={styles.textoSecundario}>{item.numero_ticket}</Text>
         </View>
 
         {/* Fecha */}
