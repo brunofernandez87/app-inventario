@@ -33,7 +33,7 @@ export default function VentaDetalle() {
         {/* Producto */}
         <View style={{ flex: 4 }}>
           <Text style={styles.textoPrincipal}>
-            Producto: {item.producto.nombre_producto}
+            {item.producto.nombre_producto}
           </Text>
         </View>
         {/* Cantidad */}
