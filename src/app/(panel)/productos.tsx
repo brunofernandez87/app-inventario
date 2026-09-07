@@ -1,6 +1,7 @@
 import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
+import { getMedidas } from "@/service/medida";
 import {
   eliminarProducto,
   obtenerAlertaProyeccion,
@@ -19,7 +20,7 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions
+  useWindowDimensions,
 } from "react-native";
 import { imprimirPDF } from "../../utils/impresora";
 import EscanerModal from "../escaner/escanerModal";
@@ -36,6 +37,7 @@ export default function ListaProductos() {
   const [productoAEditar, setProductoAEditar] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [opcionesVisible, setOpcionesVisible] = useState(false);
+  const [listaMedida, setListamedida] = useState([]);
   const { listaProducto, cargando, fetchProducts } = useListaProducto();
   const [modalElminar, setModalEliminar] = useState(false);
   const { agregarAlCarrito } = useListaCarrito();
@@ -45,17 +47,26 @@ export default function ListaProductos() {
   );
   const [lista, setLista] = useState(listaProducto);
   const { empresa } = useEmpresa();
+  useEffect(() => {
+    const buscarMedidas = async () => {
+      if (!empresa?.id_empresa) return;
+      const medidas = await getMedidas(empresa?.id_empresa);
+      setListamedida(medidas);
+    };
+    buscarMedidas();
+  }, [empresa]);
   const renderItem = useCallback(
     ({ item }: { item: any }) => {
+      const medida = listaMedida.find((m) => m.id_medida === item.id_medida);
       const filaConAlerta = item.alerta_proyeccion
         ? { backgroundColor: "#fee2e2" }
         : {};
       const margen =
         item.costo_compra > 0
           ? Math.round(
-            ((item.precio_venta - item.costo_compra) / item.costo_compra) *
-            100,
-          )
+              ((item.precio_venta - item.costo_compra) / item.costo_compra) *
+                100,
+            )
           : 0;
       return (
         <Pressable
@@ -85,7 +96,7 @@ export default function ListaProductos() {
               {item.nombre_producto}
             </Text>
             <Text style={styles.textoSecundario} numberOfLines={1}>
-              {item.marca} • unidad
+              {item.marca} • {medida.nombre_tipo}
             </Text>
           </View>
 
@@ -139,7 +150,8 @@ export default function ListaProductos() {
 
     // Buscamos el producto en tu lista actual por código de barras o alfanumérico
     const productoEncontrado = listaProducto.find(
-      (item: Producto) => item.codigo_barras === codigo || item.codigo_alfanumerico === codigo
+      (item: Producto) =>
+        item.codigo_barras === codigo || item.codigo_alfanumerico === codigo,
     );
 
     if (productoEncontrado) {
@@ -304,9 +316,15 @@ export default function ListaProductos() {
           </Text>
         </Pressable>
         {Platform.OS !== "web" && (
-          <Pressable onPress={() => setMostrarEscaner(true)} style={[styles.botonToolbar, { backgroundColor: '#3b82f6' }]}>
-            <Text style={[styles.textoBotonToolbar, { color: 'white' }]}>📷 Escanear</Text>
-          </Pressable>)}
+          <Pressable
+            onPress={() => setMostrarEscaner(true)}
+            style={[styles.botonToolbar, { backgroundColor: "#3b82f6" }]}
+          >
+            <Text style={[styles.textoBotonToolbar, { color: "white" }]}>
+              📷 Escanear
+            </Text>
+          </Pressable>
+        )}
       </View>
       {cargando ? (
         <Text>Cargando...</Text>

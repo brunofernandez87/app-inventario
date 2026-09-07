@@ -2,6 +2,7 @@ import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
 import { getMedidas } from "@/service/medida";
 import { crearProducto } from "@/service/producto";
+import { Medida } from "@/types/types";
 import { Picker } from "@react-native-picker/picker";
 import { useEffect, useState } from "react";
 import {
@@ -20,7 +21,7 @@ export default function CreacionProducto({ onClose }) {
   const [ubicacion, setUbicacion] = useState("");
   const [costo_compra, setCosto_compra] = useState("");
   const [precio_venta, setPrecio_venta] = useState("");
-  const [medida, setMedida] = useState(1);
+  const [medida, setMedida] = useState<Medida | null>(null);
   const [stock_unidades, setStock_unidades] = useState("");
   const [stock_paquetes, setStock_paquetes] = useState("");
   const [unidades_paquete, setUnidades_paquete] = useState("");
@@ -28,13 +29,6 @@ export default function CreacionProducto({ onClose }) {
   const [stock_minimo, setStock_minimo] = useState("");
   const { empresa } = useEmpresa();
   const [listaMedida, setListamedida] = useState([]);
-  useEffect(() => {
-    const buscarMedidas = async () => {
-      const medidas = await getMedidas(empresa?.id_empresa);
-      setListamedida(medidas);
-    };
-    buscarMedidas();
-  }, []);
   const { fetchProducts } = useListaProducto();
 
   const cambiarUnidadesPorPaquete = (valor) => {
@@ -69,17 +63,33 @@ export default function CreacionProducto({ onClose }) {
       setStock_paquetes(String(Number(valor) / unidsPorPaq));
     }
   };
+  useEffect(() => {
+    const buscarMedidas = async () => {
+      if (!empresa?.id_empresa) return;
+      const medidas = await getMedidas(empresa?.id_empresa);
+      setListamedida(medidas);
+      if (medidas && medidas.length > 0) {
+        setMedida(medidas[0]);
+      }
+    };
+    buscarMedidas();
+  }, [empresa]);
   const formularioIncompleto =
     nombre.trim() == "" ||
     codigo_alfanumerico.trim() == "" ||
     costo_compra.trim() == "" ||
-    precio_venta.trim() == "";
+    precio_venta.trim() == "" ||
+    medida == null;
   const guardarProducto = async () => {
     let codigoBarrasFinal =
       "200" + Math.floor(1000000000 + Math.random() * 9000000000).toString();
     const id_empresa = empresa?.id_empresa;
     if (id_empresa == null) {
       alert("Error al crear producto");
+      return;
+    }
+    if (medida == null) {
+      alert("Error: Seleccione una medida válida");
       return;
     }
     const nuevoProducto = {
@@ -91,7 +101,7 @@ export default function CreacionProducto({ onClose }) {
       ubicacion: ubicacion,
       costo_compra: Number(costo_compra),
       precio_venta: Number(precio_venta),
-      id_medida: medida,
+      id_medida: medida.id_medida,
       stock_unidades: Number(stock_unidades),
       stock_paquetes: Number(stock_paquetes),
       unidades_por_paquete: Number(unidades_paquete),
@@ -181,19 +191,26 @@ export default function CreacionProducto({ onClose }) {
         <Text style={styles.label}>Medida</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={medida}
-            onValueChange={(itemValue) => setMedida(itemValue)}
+            selectedValue={medida?.id_medida}
+            onValueChange={(itemValue) => {
+              const medidaSeleccionada = listaMedida.find(
+                (m) => m.id_medida === Number(itemValue),
+              );
+              setMedida(medidaSeleccionada || null);
+            }}
           >
-            {listaMedida.map((medida) => (
+            {listaMedida.map((itemMedida) => (
               <Picker.Item
-                label={medida.nombre_tipo}
-                value={medida.id_medida}
-                key={medida.id_medida}
+                label={itemMedida.nombre_tipo}
+                value={itemMedida.id_medida}
+                key={itemMedida.id_medida}
               />
             ))}
           </Picker>
         </View>
-        <Text style={styles.label}>Stock expresado en {medida}</Text>
+        <Text style={styles.label}>
+          Stock expresado en {medida?.nombre_tipo}
+        </Text>
         <TextInput
           style={styles.input}
           value={stock_unidades}
@@ -207,7 +224,7 @@ export default function CreacionProducto({ onClose }) {
           onSubmitEditing={guardarProducto}
         />
 
-        <Text style={styles.label}>{medida} por paquetes</Text>
+        <Text style={styles.label}>{medida?.nombre_tipo} por paquetes</Text>
         <TextInput
           style={styles.input}
           value={unidades_paquete}
@@ -252,7 +269,7 @@ export default function CreacionProducto({ onClose }) {
         />
 
         <Text style={styles.label}>
-          Stock minimo de {medida} para la alerta
+          Stock minimo de {medida?.nombre_tipo} para la alerta
         </Text>
         <TextInput
           style={styles.input}

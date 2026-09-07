@@ -27,7 +27,7 @@ export default function EditarProducto({ onClose, producto }) {
   const [precio_venta, setPrecio_venta] = useState(
     producto.precio_venta?.toString() || "",
   );
-  const [medida, setMedida] = useState(producto.id_medida);
+  const [medida, setMedida] = useState(null);
   const [stock_unidades, setStock_unidades] = useState(
     producto.stock_unidades?.toString() || "",
   );
@@ -49,11 +49,19 @@ export default function EditarProducto({ onClose, producto }) {
   const { fetchProducts } = useListaProducto();
   useEffect(() => {
     const buscarMedidas = async () => {
+      if (!empresa?.id_empresa) return;
       const medidas = await getMedidas(empresa?.id_empresa);
       setListamedida(medidas);
+      if (medidas && medidas.length > 0) {
+        const medidaOriginal = medidas.find(
+          (m) => m.id_medida === producto.id_medida,
+        );
+        setMedida(medidaOriginal || medidas[0]);
+      }
     };
+
     buscarMedidas();
-  }, []);
+  }, [empresa]);
   const cambiarUnidadesPorPaquete = (valor) => {
     setUnidades_paquete(valor);
     const unidsPorPaq = Number(valor);
@@ -90,11 +98,16 @@ export default function EditarProducto({ onClose, producto }) {
     nombre.trim() == "" ||
     codigo_alfanumerico.trim() == "" ||
     costo_compra.trim() == "" ||
-    precio_venta.trim() == "";
+    precio_venta.trim() == "" ||
+    medida == null;
   const guardarProducto = async () => {
     const id_empresa = empresa?.id_empresa;
     if (id_empresa == null) {
       alert("Error al crear producto");
+      return;
+    }
+    if (medida == null) {
+      alert("Error: Seleccione una medida válida");
       return;
     }
     const nuevoProducto = {
@@ -107,7 +120,7 @@ export default function EditarProducto({ onClose, producto }) {
       ubicacion: ubicacion,
       costo_compra: Number(costo_compra),
       precio_venta: Number(precio_venta),
-      id_medida: medida,
+      id_medida: medida.id_medida,
       stock_unidades: Number(stock_unidades),
       stock_paquetes: Number(stock_paquetes),
       unidades_por_paquete: Number(unidades_paquete),
@@ -205,19 +218,26 @@ export default function EditarProducto({ onClose, producto }) {
         <Text style={styles.label}>Medida</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={medida}
-            onValueChange={(itemValue) => setMedida(itemValue)}
+            selectedValue={medida?.id_medida}
+            onValueChange={(itemValue) => {
+              const medidaSeleccionada = listaMedida.find(
+                (m) => m.id_medida === Number(itemValue),
+              );
+              setMedida(medidaSeleccionada || null);
+            }}
           >
-            {listaMedida.map((medida) => (
+            {listaMedida.map((itemMedida) => (
               <Picker.Item
-                label={medida.nombre_tipo}
-                value={medida.id_medida}
-                key={medida.id_medida}
+                label={itemMedida.nombre_tipo}
+                value={itemMedida.id_medida}
+                key={itemMedida.id_medida}
               />
             ))}
           </Picker>
         </View>
-        <Text style={styles.label}>Stock expresado en {medida}</Text>
+        <Text style={styles.label}>
+          Stock expresado en {medida?.nombre_tipo}
+        </Text>
         <TextInput
           style={styles.input}
           value={stock_unidades}
@@ -231,7 +251,7 @@ export default function EditarProducto({ onClose, producto }) {
           onSubmitEditing={guardarProducto}
         />
 
-        <Text style={styles.label}>{medida} por paquetes</Text>
+        <Text style={styles.label}> {medida?.nombre_tipo} por paquetes</Text>
         <TextInput
           style={styles.input}
           value={unidades_paquete}
@@ -276,7 +296,7 @@ export default function EditarProducto({ onClose, producto }) {
         />
 
         <Text style={styles.label}>
-          Stock minimo de {medida} para la alerta
+          Stock minimo de {medida?.nombre_tipo} para la alerta
         </Text>
         <TextInput
           style={styles.input}
