@@ -11,10 +11,13 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { TextInput } from "react-native-gesture-handler";
 
 export default function Carrito() {
   const { width } = useWindowDimensions();
   const [listaMedida, setListamedida] = useState([]);
+  const [descuento, setDescuento] = useState("0");
+  const [porcentaje, setPorcentaje] = useState(false);
   const { listaCarrito, setListaCarrito, vaciarCarrito } = useListaCarrito();
   const celular = width < 768;
   const totalCompra = listaCarrito.reduce((acumulador, item) => {
@@ -155,6 +158,21 @@ export default function Carrito() {
       ),
     );
   };
+  const total = () => {
+    if (Number(descuento) != 0) {
+      if (porcentaje == true) {
+        const porcentajeDescuento = Number(descuento);
+        const totalDescuento = totalCompra * (porcentajeDescuento / 100);
+        const total = totalCompra - totalDescuento;
+        return total.toFixed(2);
+      } else {
+        const total = totalCompra - Number(descuento);
+        return total.toFixed(2);
+      }
+    } else {
+      return totalCompra.toFixed(2);
+    }
+  };
   const comprar = () => {
     vaciarCarrito();
     alert("compra realizada");
@@ -214,10 +232,33 @@ export default function Carrito() {
               </View>
             </ScrollView>
             <View style={styles.footerContainer}>
-              <Text style={styles.textoTotal}>
-                Total: {totalCompra.toFixed(2)}
-              </Text>
+              <Text style={styles.textoTotal}>Descuento opcional:</Text>
+              <TextInput
+                value={descuento}
+                onChangeText={setDescuento}
+                placeholder="0"
+                placeholderTextColor="#9ca3af"
+              />
+              <Pressable
+                onPress={() => setPorcentaje(!porcentaje)}
+                style={[
+                  {
+                    backgroundColor: porcentaje ? "#2563eb" : "#e5e7eb",
+                    padding: 10,
+                    borderRadius: 5,
+                    marginVertical: 5,
+                  },
+                ]}
+              >
+                <Text style={[{ color: porcentaje ? "white" : "black" }]}>
+                  {porcentaje ? "☑ Porcentaje" : "☐ Porcentaje"}
+                </Text>
+              </Pressable>
             </View>
+            <View style={styles.footerContainer}>
+              <Text style={styles.textoTotal}>Total: {total()}</Text>
+            </View>
+
             <View>
               <Pressable onPress={comprar} style={styles.botonComprar}>
                 <Text style={styles.textoBotonComprar}>Comprar</Text>
