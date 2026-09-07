@@ -61,6 +61,9 @@ export default function LayoutPanel() {
       <Drawer.Screen name="movimientos" options={{ drawerLabel: "Movimientos", title: "Movimientos" }} />
       <Drawer.Screen name="ventas" options={{ drawerLabel: "Ventas", title: "Ventas" }} />
       <Drawer.Screen name="reportes" options={{ drawerLabel: "Reportes", title: "Reportes" }} />
+      <Drawer.Screen name="detalleVenta" options={{
+        drawerItemStyle: { display: 'none' }
+      }} />
     </Drawer>
   );
 }
