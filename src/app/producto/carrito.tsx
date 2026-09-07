@@ -1,9 +1,9 @@
 import { useListaCarrito } from "@/context/carritoContext";
-import { BlurView } from "expo-blur";
-import { useCallback, useState } from "react";
+import { useEmpresa } from "@/context/empresaContext";
+import { getMedidas } from "@/service/medida";
+import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,112 +11,126 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import VentanaConfirmacion from "../ventanaConfirmacion";
 
 export default function Carrito() {
   const { width } = useWindowDimensions();
-  const [productoAEditar, setProductoAEditar] = useState(null);
-  const [modalEliminar, setModalEliminar] = useState(false);
+  const [listaMedida, setListamedida] = useState([]);
   const { listaCarrito, setListaCarrito, vaciarCarrito } = useListaCarrito();
   const celular = width < 768;
   const totalCompra = listaCarrito.reduce((acumulador, item) => {
     const cantidad = item.cantidad || 1;
     return acumulador + item.precio_venta * cantidad;
   }, 0);
+  const { empresa } = useEmpresa();
+  useEffect(() => {
+    const buscarMedidas = async () => {
+      if (!empresa?.id_empresa) return;
+      const medidas = await getMedidas(empresa?.id_empresa);
+      setListamedida(medidas);
+    };
+    buscarMedidas();
+  }, [empresa]);
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
     [],
   );
-  const renderItem = useCallback(({ item }: { item: any }) => {
-    const cantidad = item.cantidad || 1;
-    const subtotal = item.precio_venta * cantidad;
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.fila,
-          pressed && { backgroundColor: "#fee2e2" }, // Efecto visual al mantener apretado
-        ]}
-        onLongPress={() => eliminar(item)}
-      >
-        <View style={[styles.celda, { flex: 1.2 }]}>
-          <Text style={styles.textoPrincipal} numberOfLines={1}>
-            {item.codigo_alfanumerico}
-          </Text>
-          <Text style={styles.textoSecundario} numberOfLines={1}>
-            {item.codigo_barras}
-          </Text>
-        </View>
+  const renderItem = useCallback(
+    ({ item }: { item: any }) => {
+      const medida = listaMedida.find((m) => m.id_medida === item.id_medida);
+      const cantidad = item.cantidad || 1;
+      const subtotal = item.precio_venta * cantidad;
+      return (
+        <Pressable style={({ pressed }) => [styles.fila]}>
+          <View style={[styles.celda, { flex: 1.2 }]}>
+            <Text style={styles.textoPrincipal} numberOfLines={1}>
+              {item.codigo_alfanumerico}
+            </Text>
+            <Text style={styles.textoSecundario} numberOfLines={1}>
+              {item.codigo_barras}
+            </Text>
+          </View>
 
-        {/* Producto */}
-        <View style={[styles.celda, { flex: 2 }]}>
-          <Text
-            style={[styles.textoPrincipal, { fontSize: 15 }]}
-            numberOfLines={1}
+          {/* Producto */}
+          <View style={[styles.celda, { flex: 2 }]}>
+            <Text
+              style={[styles.textoPrincipal, { fontSize: 15 }]}
+              numberOfLines={1}
+            >
+              {item.nombre_producto}
+            </Text>
+            <Text style={styles.textoSecundario} numberOfLines={1}>
+              {item.marca} • {medida?.nombre_tipo}
+            </Text>
+          </View>
+          {/* Precio */}
+          <View style={[styles.celda, { flex: 1 }]}>
+            <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
+              ${item.precio_venta}
+            </Text>
+          </View>
+          {/* Cantidad (Con los botones + y -) */}
+          <View
+            style={[
+              styles.celda,
+              {
+                width: 90,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 2,
+              },
+            ]}
           >
-            {item.nombre_producto}
-          </Text>
-          <Text style={styles.textoSecundario} numberOfLines={1}>
-            {item.marca} • unidad
-          </Text>
-        </View>
-        {/* Precio */}
-        <View style={[styles.celda, { flex: 1 }]}>
-          <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
-            ${item.precio_venta}
-          </Text>
-        </View>
-        {/* Cantidad (Con los botones + y -) */}
-        <View
-          style={[
-            styles.celda,
-            {
-              width: 90,
-              flexDirection: "row",
+            <Pressable
+              onPress={() => cambiarCantidad(item.id_producto, "restar")}
+              style={styles.botonCantidad}
+            >
+              <Text style={styles.textoBotonCantidad}>-</Text>
+            </Pressable>
+
+            <Text
+              style={[styles.textoPrincipal, { fontSize: 15, marginBottom: 0 }]}
+            >
+              {cantidad}
+            </Text>
+
+            <Pressable
+              onPress={() => cambiarCantidad(item.id_producto, "sumar")}
+              style={styles.botonCantidad}
+            >
+              <Text style={styles.textoBotonCantidad}>+</Text>
+            </Pressable>
+          </View>
+          {/* Subtotal */}
+          <View style={[styles.celda, { flex: 1.2, alignItems: "flex-end" }]}>
+            <Text
+              style={[
+                styles.textoPrincipal,
+                { fontSize: 14, color: "#15803d" },
+              ]}
+            >
+              ${subtotal.toFixed(2)}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => eliminacionProducto(item)}
+            style={{
+              padding: 5,
+              justifyContent: "center",
               alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: 2,
-            },
-          ]}
-        >
-          <Pressable
-            onPress={() => cambiarCantidad(item.id_producto, "restar")}
-            style={styles.botonCantidad}
+            }}
           >
-            <Text style={styles.textoBotonCantidad}>-</Text>
+            <Text
+              style={{ color: "#ef4444", fontWeight: "bold", fontSize: 16 }}
+            >
+              X
+            </Text>
           </Pressable>
-
-          <Text
-            style={[styles.textoPrincipal, { fontSize: 15, marginBottom: 0 }]}
-          >
-            {cantidad}
-          </Text>
-
-          <Pressable
-            onPress={() => cambiarCantidad(item.id_producto, "sumar")}
-            style={styles.botonCantidad}
-          >
-            <Text style={styles.textoBotonCantidad}>+</Text>
-          </Pressable>
-        </View>
-        {/* Subtotal */}
-        <View style={[styles.celda, { flex: 1.2, alignItems: "flex-end" }]}>
-          <Text
-            style={[styles.textoPrincipal, { fontSize: 14, color: "#15803d" }]}
-          >
-            ${subtotal.toFixed(2)}
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => eliminar(item)}
-          style={{ padding: 5, justifyContent: "center", alignItems: "center" }}
-        >
-          <Text style={{ color: "#ef4444", fontWeight: "bold", fontSize: 16 }}>
-            X
-          </Text>
         </Pressable>
-      </Pressable>
-    );
-  }, []);
+      );
+    },
+    [listaMedida],
+  );
   const cambiarCantidad = (id_producto, operacion) => {
     setListaCarrito((carritoAnterior) =>
       carritoAnterior.map((item) => {
@@ -134,17 +148,12 @@ export default function Carrito() {
       }),
     );
   };
-  const eliminar = (producto) => {
-    setProductoAEditar(producto);
-    setModalEliminar(true);
-  };
   const eliminacionProducto = (producto) => {
     setListaCarrito((carritoAnterior) =>
       carritoAnterior.filter(
         (item) => item.id_producto !== producto.id_producto,
       ),
     );
-    setModalEliminar(false);
   };
   const comprar = () => {
     vaciarCarrito();
@@ -217,26 +226,6 @@ export default function Carrito() {
           </View>
         )}
       </View>
-      <Modal
-        animationType="fade"
-        transparent={true} // Permite ver el fondo oscuro
-        visible={modalEliminar}
-        onRequestClose={() => setModalEliminar(false)} // Permite cerrar con el botón "Atrás" de Android
-      >
-        <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
-          <View
-            style={[styles.modalVentana, celular && styles.modalVentanaCelular]}
-          >
-            {productoAEditar && (
-              <VentanaConfirmacion
-                onClose={() => setModalEliminar(false)}
-                texto={"que desea eliminar este producto del carrito"}
-                onConfirm={() => eliminacionProducto(productoAEditar)}
-              />
-            )}
-          </View>
-        </BlurView>
-      </Modal>
     </View>
   );
 }
