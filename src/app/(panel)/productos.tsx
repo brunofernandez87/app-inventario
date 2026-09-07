@@ -96,7 +96,7 @@ export default function ListaProductos() {
               {item.nombre_producto}
             </Text>
             <Text style={styles.textoSecundario} numberOfLines={1}>
-              {item.marca} • {medida.nombre_tipo}
+              {item.marca} • {medida?.nombre_tipo}
             </Text>
           </View>
 
@@ -138,7 +138,7 @@ export default function ListaProductos() {
         </Pressable>
       );
     },
-    [agregarAlCarrito],
+    [agregarAlCarrito, listaMedida],
   );
 
   const [modalCodigo, setModalCodigo] = useState(false);
