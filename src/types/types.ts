@@ -43,6 +43,13 @@ export interface Empresa {
   activo?: boolean | null;
   fecha_creacion?: String | null;
 }
+export interface Medida {
+  id_medida: number;
+  id_empresa: number;
+  nombre_tipo: string;
+  abrevacion: String;
+  permiter_decimales?: boolean;
+}
 
 export interface Usuario {
   id_usuario: number;
