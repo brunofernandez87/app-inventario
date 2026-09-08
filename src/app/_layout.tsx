@@ -1,18 +1,25 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import { useColorScheme } from "react-native";
+import { ListaCarritoProvider } from "@/context/carritoContext";
+import { ListaProductoProvider } from "@/context/listaProductoContext";
+import { ListaVentaProvider } from "@/context/listaVentaContext";
+import { Stack } from "expo-router";
+import AlertsInApp from "../components/notificaciones/alert_inApp";
+import { AuthProvider } from "../context/authContext";
+import { EmpresaProvider } from "../context/empresaContext";
 
-import { AnimatedSplashOverlay } from "@/components/animated-icon";
-import AppTabs from "@/components/app-tabs";
-
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function LayoutPrincipal() {
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <AuthProvider>
+      <EmpresaProvider>
+        <ListaCarritoProvider>
+          <ListaVentaProvider>
+            <ListaProductoProvider>
+              {/* El Stack maneja la navegación visual ocultando la barra superior nativa */}
+              <Stack screenOptions={{ headerShown: false }} />
+              <AlertsInApp />
+            </ListaProductoProvider>
+          </ListaVentaProvider>
+        </ListaCarritoProvider>
+      </EmpresaProvider>
+    </AuthProvider>
   );
 }

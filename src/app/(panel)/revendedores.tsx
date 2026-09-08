@@ -1,0 +1,1595 @@
+import { useEmpresa } from "@/context/empresaContext";
+import { getMedidas } from "@/service/medida";
+import {
+  asignarStockARevendedor,
+  crearNuevoRevendedor,
+  editarRevendedor,
+  eliminarRevendedor,
+  obtenerProductosParaAsignar,
+  obtenerRevendedoresYStock,
+  procesarDevolucion,
+  procesarVenta,
+} from "@/service/stock_revendedor";
+import { Medida, StockRevendedor, Usuario } from "@/types/types";
+import { imprimirPDF } from "@/utils/impresora";
+import { BlurView } from "expo-blur";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from "react-native";
+
+export default function StockRevendedorScreen() {
+  const { empresa } = useEmpresa();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [stock, setStock] = useState<StockRevendedor[]>([]);
+  const [productos, setProductos] = useState<any[]>([]);
+  const [medidas, setMedidas] = useState<Medida[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [modalDevolucionVisible, setModalDevolucionVisible] = useState(false);
+  const [modalVentaVisible, setModalVentaVisible] = useState(false);
+  const [itemSeleccionado, setItemSeleccionado] =
+    useState<StockRevendedor | null>(null);
+  const [cantidadInput, setCantidadInput] = useState("");
+
+  const [modalNuevoRevVisible, setModalNuevoRevVisible] = useState(false);
+  const [modalEditarRevVisible, setModalEditarRevVisible] = useState(false);
+  const [revId, setRevId] = useState<number | null>(null);
+  const [revNombre, setRevNombre] = useState("");
+  const [revRol, setRevRol] = useState("Revendedor");
+  const [revDescuento, setRevDescuento] = useState("");
+  const [revBonificacion, setRevBonificacion] = useState("");
+  const [revPermiteDevolucion, setRevPermiteDevolucion] = useState(false);
+
+  const [modalAsignarVisible, setModalAsignarVisible] = useState(false);
+  const [asignarIdUsuario, setAsignarIdUsuario] = useState<number | null>(null);
+  const [asignarIdProducto, setAsignarIdProducto] = useState<number | null>(
+    null,
+  );
+  const [asignarCantidad, setAsignarCantidad] = useState("");
+  const [asignarEstado, setAsignarEstado] = useState("En poder");
+
+  const [modalSelectorVisible, setModalSelectorVisible] = useState(false);
+  const [tipoSelector, setTipoSelector] = useState<"usuario" | "producto">(
+    "usuario",
+  );
+  const [modalImprimirVisible, setModalImprimirVisible] = useState(false);
+  const [opcionImprimir, setOpcionImprimir] = useState<"todos" | number>(
+    "todos",
+  );
+
+  const hoy = new Date();
+  const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const formatearFechaStr = (d: Date) =>
+    `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
+
+  const [fechaInicio, setFechaInicio] = useState(formatearFechaStr(primerDia));
+  const [fechaFin, setFechaFin] = useState(formatearFechaStr(hoy));
+
+  const dateToWeb = (str: string) => {
+    const p = str.split("/");
+    if (p.length === 3) return `${p[2]}-${p[1]}-${p[0]}`;
+    return "";
+  };
+  const webToDate = (str: string) => {
+    const p = str.split("-");
+    if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+    return "";
+  };
+
+  const manejarCambioFecha = (
+    texto: string,
+    setFecha: (val: string) => void,
+  ) => {
+    const soloNumeros = texto.replace(/[^0-9]/g, "");
+    let formateado = soloNumeros;
+
+    if (soloNumeros.length > 2) {
+      formateado = soloNumeros.slice(0, 2) + "/" + soloNumeros.slice(2);
+    }
+    if (soloNumeros.length > 4) {
+      formateado =
+        soloNumeros.slice(0, 2) +
+        "/" +
+        soloNumeros.slice(2, 4) +
+        "/" +
+        soloNumeros.slice(4, 8);
+    }
+    setFecha(formateado);
+  };
+
+  const cargarDatos = async () => {
+    if (!empresa) return;
+    setLoading(true);
+    const data = await obtenerRevendedoresYStock(empresa.id_empresa);
+    const prods = await obtenerProductosParaAsignar(empresa.id_empresa);
+    const meds = await getMedidas(empresa.id_empresa); // Traemos medidas
+
+    setUsuarios(data.usuarios);
+    setStock(data.stock);
+    setProductos(prods);
+    setMedidas(meds);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    cargarDatos();
+  }, [empresa]);
+
+  const validarDecimales = (cantidad: number, id_producto: number) => {
+    const producto = productos.find((p) => p.id_producto === id_producto);
+    if (!producto) return true; // Por las dudas
+
+    const medida = medidas.find((m) => m.id_medida === producto.id_medida);
+    if (!medida) return true;
+    if (!medida.permite_decimales && !Number.isInteger(cantidad)) {
+      Alert.alert(
+        "Atención",
+        `El producto "${producto.nombre_producto}" se mide en ${medida.nombre_tipo}, no podés ingresar cantidades con coma o punto.`,
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const handleAbrirVenta = (item: StockRevendedor) => {
+    setItemSeleccionado(item);
+    setCantidadInput(item.cantidad.toString());
+    setModalVentaVisible(true);
+  };
+
+  const confirmarVenta = async () => {
+    if (!empresa) return;
+    const cant = parseFloat(cantidadInput.replace(",", "."));
+
+    if (
+      !itemSeleccionado ||
+      isNaN(cant) ||
+      cant <= 0 ||
+      cant > itemSeleccionado.cantidad
+    ) {
+      return Alert.alert("Error", "Cantidad inválida.");
+    }
+    if (!validarDecimales(cant, itemSeleccionado.id_producto)) return;
+
+    setModalVentaVisible(false);
+    setLoading(true);
+    const exito = await procesarVenta(
+      itemSeleccionado,
+      cant,
+      empresa.id_empresa,
+    );
+    if (exito) await cargarDatos();
+    else {
+      Alert.alert("Error", "No se pudo registrar la venta.");
+      setLoading(false);
+    }
+  };
+
+  const handleAbrirDevolucion = (item: StockRevendedor) => {
+    setItemSeleccionado(item);
+    setCantidadInput(item.cantidad.toString());
+    setModalDevolucionVisible(true);
+  };
+
+  const confirmarDevolucion = async () => {
+    if (!empresa) return;
+    const cant = parseFloat(cantidadInput.replace(",", "."));
+
+    if (
+      !itemSeleccionado ||
+      isNaN(cant) ||
+      cant <= 0 ||
+      cant > itemSeleccionado.cantidad
+    ) {
+      return Alert.alert("Error", "Cantidad inválida.");
+    }
+
+    // VALIDACIÓN DECIMAL
+    if (!validarDecimales(cant, itemSeleccionado.id_producto)) return;
+
+    setModalDevolucionVisible(false);
+    setLoading(true);
+    const exito = await procesarDevolucion(
+      itemSeleccionado,
+      cant,
+      empresa.id_empresa,
+    );
+    if (exito) await cargarDatos();
+    else {
+      Alert.alert("Error", "No se pudo procesar la devolución.");
+      setLoading(false);
+    }
+  };
+
+  const limpiarFormRevendedor = () => {
+    setRevId(null);
+    setRevNombre("");
+    setRevRol("Revendedor");
+    setRevDescuento("");
+    setRevBonificacion("");
+    setRevPermiteDevolucion(false);
+  };
+
+  const guardarRevendedor = async (esEdicion: boolean) => {
+    if (!empresa) return;
+    if (revNombre.trim() === "")
+      return Alert.alert("Atención", "Tenés que escribir el nombre.");
+
+    const descVal = parseFloat(revDescuento);
+    const bonifVal = parseFloat(revBonificacion);
+
+    let valorFinal = 0;
+    if (!isNaN(descVal) && descVal > 0) {
+      valorFinal = descVal;
+    } else if (!isNaN(bonifVal) && bonifVal > 0) {
+      valorFinal = bonifVal;
+    }
+
+    setLoading(true);
+    let exito = false;
+    if (esEdicion && revId) {
+      exito = await editarRevendedor(
+        revId,
+        revNombre,
+        revRol,
+        valorFinal,
+        revPermiteDevolucion,
+      );
+    } else {
+      exito = await crearNuevoRevendedor(
+        revNombre,
+        revRol as any,
+        valorFinal,
+        empresa.id_empresa,
+        revPermiteDevolucion,
+      );
+    }
+
+    if (exito) {
+      setModalNuevoRevVisible(false);
+      setModalEditarRevVisible(false);
+      limpiarFormRevendedor();
+      await cargarDatos();
+    } else {
+      Alert.alert("Error", "No se pudo guardar.");
+      setLoading(false);
+    }
+  };
+
+  const handleEliminarRevendedor = (id: number, nombre: string) => {
+    if (!empresa) return;
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(
+          `¿Seguro que querés eliminar a ${nombre}?\nTodo el stock se devolverá automáticamente.`,
+        )
+      ) {
+        setLoading(true);
+        eliminarRevendedor(id, empresa.id_empresa).then(() => cargarDatos());
+      }
+    } else {
+      Alert.alert(
+        "Eliminar Cuenta",
+        `¿Seguro que querés eliminar a ${nombre}?\nTodo su stock se devolverá automáticamente al inventario.`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Eliminar y Devolver",
+            style: "destructive",
+            onPress: () => {
+              setLoading(true);
+              eliminarRevendedor(id, empresa.id_empresa).then(() =>
+                cargarDatos(),
+              );
+            },
+          },
+        ],
+      );
+    }
+  };
+
+  const handleConfirmarAsignacion = async () => {
+    if (!empresa) return;
+    const cantidadFinal = parseFloat(asignarCantidad.replace(",", "."));
+
+    if (!asignarIdUsuario)
+      return Alert.alert("Atención", "Seleccioná un revendedor.");
+    if (!asignarIdProducto)
+      return Alert.alert("Atención", "Seleccioná un producto.");
+    if (isNaN(cantidadFinal) || cantidadFinal <= 0)
+      return Alert.alert("Atención", "Ingresá una cantidad válida.");
+    if (!validarDecimales(cantidadFinal, asignarIdProducto)) return;
+
+    setLoading(true);
+    const resultado = await asignarStockARevendedor(
+      asignarIdUsuario,
+      asignarIdProducto,
+      cantidadFinal,
+      asignarEstado as any,
+      empresa.id_empresa,
+    );
+
+    if (resultado.exito) {
+      setModalAsignarVisible(false);
+      setAsignarIdUsuario(null);
+      setAsignarIdProducto(null);
+      setAsignarCantidad("");
+      setAsignarEstado("En poder");
+      await cargarDatos();
+    } else {
+      Alert.alert("No se pudo asignar", resultado.error);
+      setLoading(false);
+    }
+  };
+
+  const getNombreUsuarioSeleccionado = () =>
+    asignarIdUsuario
+      ? usuarios.find((u) => u.id_usuario === asignarIdUsuario)?.nombre_usuario
+      : "Seleccionar...";
+  const getNombreProductoSeleccionado = () =>
+    asignarIdProducto
+      ? productos.find((p) => p.id_producto === asignarIdProducto)
+          ?.nombre_producto
+      : "Seleccionar...";
+
+  const usuariosFiltrados = usuarios.filter((u) => u.rol !== "Admin");
+
+  const generarPDF = async () => {
+    try {
+      const dateInicio = new Date(`${dateToWeb(fechaInicio)}T00:00:00`);
+      const dateFin = new Date(`${dateToWeb(fechaFin)}T23:59:59`);
+      const hoyReal = new Date();
+      hoyReal.setHours(23, 59, 59, 999);
+
+      if (isNaN(dateInicio.getTime()) || isNaN(dateFin.getTime()))
+        return Alert.alert("Error", "Las fechas no son válidas.");
+      if (dateInicio > dateFin)
+        return Alert.alert(
+          "Error",
+          "La fecha de inicio no puede ser mayor a la de fin.",
+        );
+
+      setLoading(true);
+
+      let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              @page { size: auto; margin: 10mm; }
+              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #334155; }
+              h1 { color: #0f172a; text-align: center; margin-bottom: 5px; font-size: 24px; }
+              .fecha { text-align: center; color: #64748b; font-size: 13px; margin-bottom: 30px; }
+              .rango { text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 40px; color: #2563eb; background: #eff6ff; padding: 10px; border-radius: 8px;}
+              .usuario-box { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-bottom: 10px; margin-top: 30px; }
+              .usuario-box h2 { margin: 0; color: #1e293b; font-size: 18px; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; border: 1px solid #cbd5e1; }
+              th, td { border: 1px solid #cbd5e1; padding: 10px 8px; text-align: left; }
+              th { background-color: #ffffff; color: #64748b; font-weight: bold; text-transform: uppercase; font-size: 11px; }
+              .row-venta td { background-color: #f4fdf8; }
+              .total-box { background-color: #1e293b; color: white; text-align: right; padding: 12px 15px; border-radius: 8px; font-size: 16px; font-weight: bold; margin-bottom: 20px; }
+              .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; display: inline-block; }
+              .poder { background-color: #fef3c7; color: #b45309; }
+              .vendido { background-color: #d1fae5; color: #047857; }
+              .devuelto { background-color: #f1f5f9; color: #64748b; }
+            </style>
+          </head>
+          <body>
+            <h1>Reporte de Ventas y Movimientos</h1>
+            <div class="fecha">Generado el ${new Date().toLocaleDateString("es-AR")}</div>
+            <div class="rango">📅 Período: ${dateInicio.toLocaleDateString("es-AR")} al ${dateFin.toLocaleDateString("es-AR")}</div>
+      `;
+
+      const usuariosAImprimir =
+        opcionImprimir === "todos"
+          ? usuariosFiltrados
+          : usuariosFiltrados.filter((u) => u.id_usuario === opcionImprimir);
+
+      usuariosAImprimir.forEach((usuario) => {
+        const stockFiltrado = stock.filter((s) => {
+          if (s.id_usuario !== usuario.id_usuario) return false;
+          if (!s.fecha_entrega) return true;
+          const fechaMov = new Date(s.fecha_entrega);
+          return fechaMov >= dateInicio && fechaMov <= dateFin;
+        });
+
+        htmlContent += `<div class="usuario-box"><h2>👤 ${usuario.nombre_usuario}</h2><p style="margin-top:5px; font-size: 12px; color: #64748b;"><strong>Rol:</strong> ${usuario.rol}</p></div>`;
+
+        if (stockFiltrado.length === 0) {
+          htmlContent += `<p style="color: #94a3b8; font-style: italic; margin-bottom: 40px; padding-left: 10px;">Sin movimientos en este período.</p>`;
+        } else {
+          htmlContent += `
+            <table>
+              <thead><tr><th>Fecha</th><th>Producto</th><th style="text-align:center;">Estado</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">Precio ud.</th><th style="text-align:right;">Total</th></tr></thead>
+              <tbody>
+          `;
+          let totalVentasRevendedor = 0;
+          stockFiltrado.forEach((s) => {
+            const nombreProd = s.producto?.nombre_producto || "S/C";
+            const precioVenta = s.producto?.precio_venta || 0;
+            const subtotal = s.cantidad * precioVenta;
+
+            // USAMOS fecha_entrega
+            const fechaStr = s.fecha_entrega
+              ? new Date(s.fecha_entrega).toLocaleDateString("es-AR")
+              : "-";
+
+            let claseEstado = "devuelto",
+              filaVenta = "";
+            if (s.estado === "En poder") claseEstado = "poder";
+            if (s.estado === "Vendido") {
+              claseEstado = "vendido";
+              filaVenta = "row-venta";
+              totalVentasRevendedor += subtotal;
+            }
+
+            htmlContent += `
+              <tr class="${filaVenta}">
+                <td>${fechaStr}</td><td><b>${nombreProd}</b></td>
+                <td style="text-align:center;"><span class="badge ${claseEstado}">${s.estado}</span></td>
+                <td style="text-align:center;">${s.cantidad}</td>
+                <td style="text-align:right;">$ ${precioVenta.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                <td style="text-align:right; font-weight:bold;">$ ${subtotal.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `;
+          });
+          htmlContent += `</tbody></table><div class="total-box">TOTAL VENTAS CONCRETADAS: $ ${totalVentasRevendedor.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</div>`;
+        }
+      });
+      htmlContent += `</body></html>`;
+
+      await imprimirPDF(htmlContent);
+      setModalImprimirVisible(false);
+    } catch (error) {
+      Alert.alert("Error", "No se pudo generar el documento PDF.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderUsuario = ({ item: usuario }: { item: Usuario }) => {
+    const permiteDevolver =
+      (usuario as any).permite_devolucion === true ||
+      usuario.rol === "Camioneta";
+    const stockAsignado = stock.filter(
+      (s) => s.id_usuario === usuario.id_usuario && s.estado === "En poder",
+    );
+
+    const renderStockEnLinea = ({ item }: { item: StockRevendedor }) => (
+      <View style={styles.stockCard}>
+        <View style={styles.stockInfo}>
+          <Text style={styles.stockTitle}>
+            {item.producto?.nombre_producto}
+          </Text>
+          <Text style={styles.stockSubtitle}>En poder: {item.cantidad}</Text>
+        </View>
+        <View style={styles.btnRow}>
+          <TouchableOpacity
+            style={styles.btnVendido}
+            onPress={() => handleAbrirVenta(item)}
+          >
+            <Text style={styles.txtVendido}>Vender</Text>
+          </TouchableOpacity>
+          {permiteDevolver && (
+            <TouchableOpacity
+              style={styles.btnDevolver}
+              onPress={() => handleAbrirDevolucion(item)}
+            >
+              <Text style={styles.txtDevolver}>Devolver</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+
+    return (
+      <View style={styles.userCard}>
+        <View style={styles.userHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.userName}>{usuario.nombre_usuario}</Text>
+            <View style={styles.roleContainer}>
+              <Text style={styles.roleBadge}>{usuario.rol}</Text>
+              {permiteDevolver && usuario.rol !== "Camioneta" && (
+                <Text style={styles.badgePermiso}>
+                  ↩️ Habilitado a devolver
+                </Text>
+              )}
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => {
+                setRevId(usuario.id_usuario);
+                setRevNombre(usuario.nombre_usuario);
+                setRevRol(usuario.rol);
+                const desc = usuario.bonificacion?.toString() || "";
+                if (desc) setRevBonificacion(desc);
+                else setRevBonificacion("");
+
+                setRevPermiteDevolucion(usuario.permite_devolucion || false);
+                setModalEditarRevVisible(true);
+              }}
+            >
+              <Text style={{ fontSize: 18 }}>✏️</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() =>
+                handleEliminarRevendedor(
+                  usuario.id_usuario,
+                  usuario.nombre_usuario,
+                )
+              }
+            >
+              <Text style={{ fontSize: 18 }}>🗑️</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {stockAsignado.length === 0 ? (
+          <Text style={styles.emptyTxt}>Sin stock en poder.</Text>
+        ) : (
+          <FlatList
+            data={stockAsignado}
+            keyExtractor={(s) => s.id_registro.toString()}
+            renderItem={renderStockEnLinea}
+            scrollEnabled={false}
+          />
+        )}
+      </View>
+    );
+  };
+
+  const renderHistorial = () => {
+    return (
+      <View style={styles.historyCard}>
+        <Text style={styles.historyMainTitle}>Historial</Text>
+
+        {stock.length === 0 ? (
+          <Text style={styles.emptyTxt}>No hay movimientos.</Text>
+        ) : (
+          <ScrollView
+            nestedScrollEnabled={true}
+            style={{ maxHeight: !isMobile ? 500 : undefined }}
+          >
+            <View style={{ paddingTop: 10, width: "100%" }}>
+              {stock.map((fila) => {
+                const rev = usuarios.find(
+                  (u) => u.id_usuario === fila.id_usuario,
+                );
+                let bStyle = styles.badgeDefault,
+                  bTxtStyle = styles.badgeTxtDefault;
+
+                if (fila.estado === "En poder") {
+                  bStyle = styles.badgeEnPoder;
+                  bTxtStyle = styles.badgeTxtEnPoder;
+                }
+                if (fila.estado === "Vendido") {
+                  bStyle = styles.badgeVendido;
+                  bTxtStyle = styles.badgeTxtVendido;
+                }
+                const d = fila.fecha_entrega
+                  ? new Date(fila.fecha_entrega)
+                  : new Date();
+                const fechaStr = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear().toString().slice(-2)}`;
+
+                const nombreRev = rev ? rev.nombre_usuario : "S/C";
+                const nombreProd = fila.producto?.nombre_producto || "S/C";
+
+                return (
+                  <View
+                    key={fila.id_registro}
+                    style={[
+                      styles.cardMobile,
+                      !isMobile && {
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 12,
+                      },
+                    ]}
+                  >
+                    {!isMobile ? (
+                      <>
+                        <View style={{ flex: 1, paddingRight: 10 }}>
+                          <Text style={[styles.dateMobile, { marginTop: 0 }]}>
+                            {fechaStr} •{" "}
+                            <Text style={{ fontWeight: "bold" }}>
+                              Rev: {nombreRev}
+                            </Text>
+                          </Text>
+                        </View>
+                        <View style={{ flex: 2, paddingHorizontal: 10 }}>
+                          <Text
+                            style={[
+                              styles.productNameMobile,
+                              { marginTop: 0, marginBottom: 4 },
+                            ]}
+                          >
+                            {nombreProd}
+                          </Text>
+                          <Text style={styles.quantityMobile}>
+                            Cantidad: {fila.cantidad} uds.
+                          </Text>
+                        </View>
+                        <View
+                          style={{
+                            flex: 1,
+                            alignItems: "flex-end",
+                            paddingLeft: 10,
+                          }}
+                        >
+                          <View style={bStyle}>
+                            <Text style={bTxtStyle}>{fila.estado}</Text>
+                          </View>
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <View style={styles.cardRowMobile}>
+                          <Text style={styles.dateMobile}>
+                            {fechaStr} •{" "}
+                            <Text style={{ fontWeight: "bold" }}>
+                              Rev: {nombreRev}
+                            </Text>
+                          </Text>
+                          <View style={bStyle}>
+                            <Text style={bTxtStyle}>{fila.estado}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.productNameMobile}>
+                          {nombreProd}
+                        </Text>
+                        <View
+                          style={[
+                            styles.cardRowMobile,
+                            { marginTop: 8, marginBottom: 0 },
+                          ]}
+                        >
+                          <Text style={styles.quantityMobile}>
+                            Cantidad: {fila.cantidad} uds.
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.headerTop}>
+        <View>
+          <Text style={styles.mainTitle}>Revendedores</Text>
+          <Text style={styles.mainSubtitle}>
+            {usuariosFiltrados.length} clientes registrados
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.headerActionBtns,
+            { width: !isMobile ? "auto" : "100%" },
+          ]}
+        >
+          <TouchableOpacity
+            style={[styles.btnHeaderPrint, { flex: !isMobile ? undefined : 1 }]}
+            onPress={() => {
+              setOpcionImprimir("todos");
+              setModalImprimirVisible(true);
+            }}
+          >
+            <Text style={styles.txtHeaderPrint}>🖨️ Imprimir PDF</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.btnHeaderPrimary,
+              { flex: !isMobile ? undefined : 1 },
+            ]}
+            onPress={() => setModalAsignarVisible(true)}
+          >
+            <Text style={styles.txtHeaderPrimary}>+ Asignar Stock</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.btnHeaderSecondary,
+              { flex: !isMobile ? undefined : 1 },
+            ]}
+            onPress={() => {
+              limpiarFormRevendedor();
+              setModalNuevoRevVisible(true);
+            }}
+          >
+            <Text style={styles.txtHeaderSecondary}>+ Nuevo Revendedor</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color="#2563eb"
+          style={{ marginTop: 40 }}
+        />
+      ) : (
+        <FlatList
+          data={usuariosFiltrados}
+          keyExtractor={(u) => u.id_usuario.toString()}
+          renderItem={renderUsuario}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          ListFooterComponent={renderHistorial}
+        />
+      )}
+
+      {/* MODALES */}
+      <Modal
+        visible={modalVentaVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Registrar Venta</Text>
+            <Text style={styles.label}>Unidades a marcar como vendidas:</Text>
+            <TextInput
+              style={styles.modalInput}
+              keyboardType="numeric"
+              value={cantidadInput}
+              onChangeText={setCantidadInput}
+            />
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalVentaVisible(false)}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: "#22c55e" }]}
+                onPress={confirmarVenta}
+              >
+                <Text style={styles.modalTxtConfirm}>Vender</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
+
+      <Modal
+        visible={modalDevolucionVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Registrar Devolución</Text>
+            <Text style={styles.label}>
+              Unidades que vuelven al inventario:
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              keyboardType="numeric"
+              value={cantidadInput}
+              onChangeText={setCantidadInput}
+            />
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalDevolucionVisible(false)}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: "#f97316" }]}
+                onPress={confirmarDevolucion}
+              >
+                <Text style={[styles.modalTxtConfirm, { color: "#fff" }]}>
+                  Devolver
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
+
+      <Modal
+        visible={modalNuevoRevVisible || modalEditarRevVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>
+              {modalEditarRevVisible ? "Editar Revendedor" : "Nuevo Revendedor"}
+            </Text>
+            <Text style={styles.label}>Nombre *</Text>
+            <TextInput
+              style={styles.modalInputText}
+              placeholder="Nombre completo"
+              value={revNombre}
+              onChangeText={setRevNombre}
+            />
+            <Text style={styles.label}>Rol</Text>
+            <View style={styles.roleSelectionGroup}>
+              <TouchableOpacity
+                style={
+                  revRol === "Revendedor"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setRevRol("Revendedor")}
+              >
+                <Text
+                  style={
+                    revRol === "Revendedor"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Revendedor
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={
+                  revRol === "Socio"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setRevRol("Socio")}
+              >
+                <Text
+                  style={
+                    revRol === "Socio"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Socio
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={
+                  revRol === "Camioneta"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => {
+                  setRevRol("Camioneta");
+                  setRevDescuento("");
+                  setRevBonificacion("");
+                }}
+              >
+                <Text
+                  style={
+                    revRol === "Camioneta"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Camioneta
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {revRol !== "Camioneta" && (
+              <>
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Descuento (%)</Text>
+                    <TextInput
+                      style={styles.modalInputText}
+                      keyboardType="numeric"
+                      placeholder="Ej: 10"
+                      value={revDescuento}
+                      onChangeText={(texto) => {
+                        setRevDescuento(texto);
+                        if (texto.length > 0) setRevBonificacion("");
+                      }}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Bonificación (%)</Text>
+                    <TextInput
+                      style={styles.modalInputText}
+                      keyboardType="numeric"
+                      placeholder="Ej: 15"
+                      value={revBonificacion}
+                      onChangeText={(texto) => {
+                        setRevBonificacion(texto);
+                        if (texto.length > 0) setRevDescuento("");
+                      }}
+                    />
+                  </View>
+                </View>
+                <View style={styles.switchContainer}>
+                  <Text style={styles.labelSwitch}>
+                    ¿Permitir devoluciones?
+                  </Text>
+                  <Switch
+                    value={revPermiteDevolucion}
+                    onValueChange={setRevPermiteDevolucion}
+                    trackColor={{ false: "#cbd5e1", true: "#93c5fd" }}
+                    thumbColor={revPermiteDevolucion ? "#2563eb" : "#f1f5f9"}
+                  />
+                </View>
+              </>
+            )}
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => {
+                  setModalNuevoRevVisible(false);
+                  setModalEditarRevVisible(false);
+                }}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalBtnConfirm}
+                onPress={() => guardarRevendedor(modalEditarRevVisible)}
+              >
+                <Text style={styles.modalTxtConfirm}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
+
+      <Modal
+        visible={modalAsignarVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Asignar Stock</Text>
+            <Text style={styles.label}>Revendedor *</Text>
+            <TouchableOpacity
+              style={styles.mockDropdown}
+              onPress={() => {
+                setTipoSelector("usuario");
+                setModalSelectorVisible(true);
+              }}
+            >
+              <Text style={styles.mockDropdownTxt}>
+                {getNombreUsuarioSeleccionado()}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.label}>Producto *</Text>
+            <TouchableOpacity
+              style={styles.mockDropdown}
+              onPress={() => {
+                setTipoSelector("producto");
+                setModalSelectorVisible(true);
+              }}
+            >
+              <Text style={styles.mockDropdownTxt}>
+                {getNombreProductoSeleccionado()}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.label}>Cantidad *</Text>
+            <TextInput
+              style={styles.modalInputText}
+              keyboardType="numeric"
+              value={asignarCantidad}
+              onChangeText={setAsignarCantidad}
+            />
+            <Text style={styles.label}>Estado inicial</Text>
+            <View style={styles.roleSelectionGroup}>
+              <TouchableOpacity
+                style={
+                  asignarEstado === "En poder"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setAsignarEstado("En poder")}
+              >
+                <Text
+                  style={
+                    asignarEstado === "En poder"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  📦 En poder
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={
+                  asignarEstado === "Vendido"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setAsignarEstado("Vendido")}
+              >
+                <Text
+                  style={
+                    asignarEstado === "Vendido"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  ✓ Vendido
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalAsignarVisible(false)}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalBtnConfirm}
+                onPress={handleConfirmarAsignacion}
+              >
+                <Text style={styles.modalTxtConfirm}>Asignar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
+
+      <Modal
+        visible={modalSelectorVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: "80%" }]}>
+            <Text style={styles.modalTitle}>
+              Seleccionar{" "}
+              {tipoSelector === "usuario" ? "Revendedor" : "Producto"}
+            </Text>
+            <FlatList
+              data={tipoSelector === "usuario" ? usuariosFiltrados : productos}
+              keyExtractor={(item) =>
+                tipoSelector === "usuario"
+                  ? item.id_usuario.toString()
+                  : item.id_producto.toString()
+              }
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.selectorItem}
+                  onPress={() => {
+                    if (tipoSelector === "usuario")
+                      setAsignarIdUsuario(item.id_usuario);
+                    else setAsignarIdProducto(item.id_producto);
+                    setModalSelectorVisible(false);
+                  }}
+                >
+                  <Text style={styles.selectorItemTxt}>
+                    {tipoSelector === "usuario"
+                      ? item.nombre_usuario
+                      : `${item.nombre_producto} (Quedan: ${item.stock_unidades || 0})`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity
+              style={[styles.modalBtnCancel, { marginTop: 16 }]}
+              onPress={() => setModalSelectorVisible(false)}
+            >
+              <Text style={[styles.modalTxtCancel, { textAlign: "center" }]}>
+                Cerrar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </BlurView>
+      </Modal>
+
+      <Modal
+        visible={modalImprimirVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Imprimir Reporte</Text>
+            <View style={styles.roleSelectionGroup}>
+              <TouchableOpacity
+                style={
+                  opcionImprimir === "todos"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() => setOpcionImprimir("todos")}
+              >
+                <Text
+                  style={
+                    opcionImprimir === "todos"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Todos
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={
+                  opcionImprimir !== "todos"
+                    ? styles.roleBtnActive
+                    : styles.roleBtnInactive
+                }
+                onPress={() =>
+                  setOpcionImprimir(
+                    usuariosFiltrados.length > 0
+                      ? usuariosFiltrados[0].id_usuario
+                      : -1,
+                  )
+                }
+              >
+                <Text
+                  style={
+                    opcionImprimir !== "todos"
+                      ? styles.roleTxtActive
+                      : styles.roleTxtInactive
+                  }
+                >
+                  Individual
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {opcionImprimir !== "todos" && (
+              <ScrollView
+                style={{
+                  maxHeight: 120,
+                  borderWidth: 1,
+                  borderColor: "#cbd5e1",
+                  borderRadius: 8,
+                  marginTop: 4,
+                  marginBottom: 10,
+                }}
+              >
+                {usuariosFiltrados.map((u) => (
+                  <TouchableOpacity
+                    key={u.id_usuario}
+                    style={[
+                      styles.selectorItem,
+                      {
+                        backgroundColor:
+                          opcionImprimir === u.id_usuario ? "#eff6ff" : "#fff",
+                        paddingHorizontal: 12,
+                      },
+                    ]}
+                    onPress={() => setOpcionImprimir(u.id_usuario)}
+                  >
+                    <Text
+                      style={[
+                        styles.selectorItemTxt,
+                        {
+                          fontWeight:
+                            opcionImprimir === u.id_usuario ? "bold" : "normal",
+                          color:
+                            opcionImprimir === u.id_usuario
+                              ? "#1e40af"
+                              : "#334155",
+                        },
+                      ]}
+                    >
+                      👤 {u.nombre_usuario}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+            <View
+              style={{
+                flexDirection: isMobile ? "column" : "row",
+                marginTop: 15,
+                marginBottom: 5,
+              }}
+            >
+              <View
+                style={
+                  isMobile
+                    ? { width: "100%", marginBottom: 16 }
+                    : { flex: 1, marginRight: 8 }
+                }
+              >
+                <Text style={styles.label}>Fecha Inicio</Text>
+                {Platform.OS === "web" ? (
+                  <input
+                    type="date"
+                    value={dateToWeb(fechaInicio)}
+                    onChange={(e) => setFechaInicio(webToDate(e.target.value))}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "15px",
+                      color: "#334155",
+                      fontFamily: "inherit",
+                      outline: "none",
+                      backgroundColor: "#fff",
+                      boxSizing: "border-box",
+                      minHeight: "48px",
+                    }}
+                  />
+                ) : (
+                  <TextInput
+                    style={styles.modalInputText}
+                    placeholder="DD/MM/YYYY"
+                    value={fechaInicio}
+                    onChangeText={(texto) =>
+                      manejarCambioFecha(texto, setFechaInicio)
+                    }
+                    keyboardType="numeric"
+                    maxLength={10}
+                  />
+                )}
+              </View>
+              <View
+                style={
+                  isMobile
+                    ? { width: "100%", marginBottom: 16 }
+                    : { flex: 1, marginLeft: 8 }
+                }
+              >
+                <Text style={styles.label}>Fecha Fin</Text>
+                {Platform.OS === "web" ? (
+                  <input
+                    type="date"
+                    value={dateToWeb(fechaFin)}
+                    onChange={(e) => setFechaFin(webToDate(e.target.value))}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "15px",
+                      color: "#334155",
+                      fontFamily: "inherit",
+                      outline: "none",
+                      backgroundColor: "#fff",
+                      boxSizing: "border-box",
+                      minHeight: "48px",
+                    }}
+                  />
+                ) : (
+                  <TextInput
+                    style={styles.modalInputText}
+                    placeholder="DD/MM/YYYY"
+                    value={fechaFin}
+                    onChangeText={(texto) =>
+                      manejarCambioFecha(texto, setFechaFin)
+                    }
+                    keyboardType="numeric"
+                    maxLength={10}
+                  />
+                )}
+              </View>
+            </View>
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalImprimirVisible(false)}
+              >
+                <Text style={styles.modalTxtCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: "#16a34a" }]}
+                onPress={generarPDF}
+              >
+                <Text style={[styles.modalTxtConfirm, { color: "#fff" }]}>
+                  Generar PDF
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#f8fafc", padding: 16 },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  mainTitle: { fontSize: 28, fontWeight: "bold", color: "#0f172a" },
+  mainSubtitle: { fontSize: 14, color: "#64748b", marginTop: 2 },
+  headerActionBtns: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
+  btnHeaderPrimary: {
+    backgroundColor: "#2563eb",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  txtHeaderPrimary: { color: "#fff", fontWeight: "bold" },
+  btnHeaderSecondary: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    alignItems: "center",
+  },
+  txtHeaderSecondary: { color: "#334155", fontWeight: "bold" },
+  btnHeaderPrint: {
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    alignItems: "center",
+  },
+  txtHeaderPrint: { color: "#475569", fontWeight: "bold" },
+  userCard: {
+    backgroundColor: "#ffffff",
+    padding: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  userHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+    paddingBottom: 8,
+  },
+  userName: { fontSize: 20, fontWeight: "bold", color: "#0f172a" },
+  roleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    gap: 12,
+  },
+  roleBadge: {
+    backgroundColor: "#dbeafe",
+    color: "#1e40af",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  badgePermiso: { fontSize: 12, color: "#059669", fontWeight: "bold" },
+  emptyTxt: {
+    color: "#94a3b8",
+    fontStyle: "italic",
+    marginTop: 8,
+    textAlign: "center",
+    paddingVertical: 10,
+  },
+  stockCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f8fafc",
+    padding: 12,
+    marginTop: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  stockInfo: { flex: 1, marginRight: 8 },
+  stockTitle: { fontWeight: "600", color: "#334155", fontSize: 15 },
+  stockSubtitle: { fontSize: 14, color: "#64748b", marginTop: 2 },
+  btnRow: { flexDirection: "row", gap: 8 },
+  btnVendido: {
+    backgroundColor: "#dcfce3",
+    borderWidth: 1,
+    borderColor: "#22c55e",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  txtVendido: { color: "#15803d", fontWeight: "bold", fontSize: 13 },
+  btnDevolver: {
+    backgroundColor: "#ffedd5",
+    borderWidth: 1,
+    borderColor: "#f97316",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  txtDevolver: { color: "#c2410c", fontWeight: "bold", fontSize: 13 },
+  historyCard: {
+    backgroundColor: "#ffffff",
+    padding: 20,
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  historyMainTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#0f172a",
+    marginBottom: 20,
+  },
+  badgeDefault: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "#f1f5f9",
+  },
+  badgeTxtDefault: { color: "#64748b", fontWeight: "bold", fontSize: 12 },
+  badgeEnPoder: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "#fef3c7",
+  },
+  badgeTxtEnPoder: { color: "#b45309", fontWeight: "bold", fontSize: 12 },
+  badgeVendido: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "#d1fae5",
+  },
+  badgeTxtVendido: { color: "#047857", fontWeight: "bold", fontSize: 12 },
+  badgeDevuelto: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "#f1f5f9",
+  },
+  badgeTxtDevuelto: { color: "#64748b", fontWeight: "bold", fontSize: 12 },
+  cardMobile: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  cardRowMobile: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  dateMobile: { fontSize: 13, color: "#64748b", marginTop: 2 },
+  productNameMobile: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0f172a",
+    marginTop: 6,
+  },
+  quantityMobile: { fontSize: 14, fontWeight: "600", color: "#334155" },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  modalBox: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 24,
+    width: "100%",
+    maxWidth: 450,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#0f172a",
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#475569",
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 18,
+    backgroundColor: "#f8fafc",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  modalInputText: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: "#fff",
+    marginBottom: 4,
+  },
+  mockDropdown: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 8,
+    padding: 14,
+    backgroundColor: "#f8fafc",
+    marginBottom: 4,
+  },
+  mockDropdownTxt: { color: "#0f172a", fontSize: 16, fontWeight: "500" },
+  selectorItem: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  selectorItemTxt: { fontSize: 16, color: "#334155" },
+  roleSelectionGroup: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  roleBtnActive: {
+    flex: 1,
+    backgroundColor: "#2563eb",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  roleBtnInactive: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+  },
+  roleTxtActive: { color: "#fff", fontWeight: "bold" },
+  roleTxtInactive: { color: "#475569", fontWeight: "bold" },
+  modalBtnRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+    marginTop: 20,
+  },
+  modalBtnCancel: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+  },
+  modalTxtCancel: { color: "#475569", fontWeight: "bold" },
+  modalBtnConfirm: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#2563eb",
+  },
+  modalTxtConfirm: { color: "#fff", fontWeight: "bold" },
+  switchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+  },
+  labelSwitch: { fontSize: 14, fontWeight: "600", color: "#475569" },
+});
