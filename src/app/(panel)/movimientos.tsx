@@ -1,3 +1,4 @@
+import { useEmpresa } from "@/context/empresaContext";
 import {
   obtenerHistorialMovimientos,
   registrarMovimientoManual,
@@ -16,10 +17,15 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 
 export default function MovimientosScreen() {
+  const { empresa } = useEmpresa();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+
   const [loading, setLoading] = useState(true);
   const [movimientos, setMovimientos] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
@@ -37,13 +43,12 @@ export default function MovimientosScreen() {
   const [regMotivo, setRegMotivo] = useState("");
   const [modalSelectorVisible, setModalSelectorVisible] = useState(false);
 
-  const ID_EMPRESA_ACTUAL = 1;
-
   const cargarDatos = async () => {
+    if (!empresa) return;
     setLoading(true);
     const [dataMovs, dataProds] = await Promise.all([
-      obtenerHistorialMovimientos(ID_EMPRESA_ACTUAL),
-      obtenerProductosParaAsignar(ID_EMPRESA_ACTUAL),
+      obtenerHistorialMovimientos(empresa.id_empresa),
+      obtenerProductosParaAsignar(empresa.id_empresa),
     ]);
     setMovimientos(dataMovs);
     setProductos(dataProds);
@@ -53,7 +58,7 @@ export default function MovimientosScreen() {
   useFocusEffect(
     useCallback(() => {
       cargarDatos();
-    }, []),
+    }, [empresa]),
   );
 
   const abrirModalRegistro = (tipo: "ENTRADA" | "SALIDA") => {
@@ -65,6 +70,7 @@ export default function MovimientosScreen() {
   };
 
   const confirmarRegistro = async () => {
+    if (!empresa) return;
     const cant = parseFloat(regCantidad);
     if (!regIdProducto)
       return Alert.alert("Atención", "Seleccioná un producto.");
@@ -73,12 +79,12 @@ export default function MovimientosScreen() {
     if (regMotivo.trim() === "")
       return Alert.alert(
         "Atención",
-        "Por favor ingresá un motivo (ej: Remito #123, Ajuste, etc).",
+        "Por favor ingresá un motivo (ej: Remito de venta, Ajuste, etc).",
       );
 
     setLoading(true);
     const resultado = await registrarMovimientoManual(
-      ID_EMPRESA_ACTUAL,
+      empresa.id_empresa,
       regIdProducto,
       tipoRegistro,
       cant,
@@ -176,119 +182,77 @@ export default function MovimientosScreen() {
     const nombreProducto =
       item.producto?.nombre_producto || "Producto Eliminado";
     const codigoProducto = item.producto?.codigo_barras || "S/C";
+
+    // FORMATEO DE CANTIDADES: pone punto en miles, y permite decimales si hay
+    const cantNumerica = Number(item.cantidad) || 0;
+    const cantFormateadaStr = cantNumerica.toLocaleString("es-AR", {
+      maximumFractionDigits: 2,
+    });
+
     const cantidadFormateada =
       item.tipo_movimiento === "SALIDA"
-        ? `- ${item.cantidad}`
-        : `+ ${item.cantidad}`;
+        ? `- ${cantFormateadaStr}`
+        : `+ ${cantFormateadaStr}`;
+
     const colorCantidad =
       item.tipo_movimiento === "SALIDA" ? "#b91c1c" : "#15803d";
-    const isWeb = Platform.OS === "web";
+
+    if (!isMobile) {
+      return (
+        <View style={styles.filaCuadro}>
+          <View style={[styles.celda, { width: 140 }]}>
+            <Text style={styles.textoPrincipal}>{fecha}</Text>
+            <Text style={styles.textoSecundario}>{hora}</Text>
+          </View>
+          <View style={[styles.celda, { width: 250 }]}>
+            <Text style={styles.textoPrincipal} numberOfLines={1}>
+              {nombreProducto}
+            </Text>
+            <Text style={styles.textoSecundario}>{codigoProducto}</Text>
+          </View>
+          <View style={[styles.celda, { flex: 1 }]}>
+            <Text style={styles.textoNormal} numberOfLines={2}>
+              {item.motivo}
+            </Text>
+          </View>
+          <View style={[styles.celda, { width: 100, alignItems: "center" }]}>
+            <Text
+              style={[
+                styles.textoPrincipal,
+                { color: colorCantidad, fontSize: 16 },
+              ]}
+            >
+              {cantidadFormateada}
+            </Text>
+          </View>
+          <View style={[styles.celda, { width: 120, alignItems: "flex-end" }]}>
+            <BadgeTipo tipo={item.tipo_movimiento} motivo={item.motivo} />
+          </View>
+        </View>
+      );
+    }
 
     return (
-      <View
-        style={[
-          styles.cardMobile,
-          isWeb && {
-            flexDirection: "row",
-            alignItems: "center",
-            paddingVertical: 14,
-            width: "100%",
-          },
-        ]}
-      >
-        {isWeb ? (
-          <>
-            <View
-              style={{ flex: 1, paddingRight: 10, justifyContent: "center" }}
-            >
-              <Text
-                style={[styles.dateMobile, { marginTop: 0, fontWeight: "600" }]}
-              >
-                {fecha}
-              </Text>
-              <Text style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
-                {hora}
-              </Text>
-            </View>
-            <View
-              style={{
-                flex: 1.5,
-                paddingHorizontal: 10,
-                justifyContent: "center",
-              }}
-            >
-              <Text
-                style={[
-                  styles.productNameMobile,
-                  { marginTop: 0, marginBottom: 2 },
-                ]}
-              >
-                {nombreProducto}
-              </Text>
-              <Text style={{ fontSize: 13, color: "#94a3b8" }}>
-                {codigoProducto}
-              </Text>
-            </View>
-            <View
-              style={{
-                flex: 2,
-                paddingHorizontal: 10,
-                justifyContent: "center",
-              }}
-            >
-              <Text
-                style={{ fontSize: 14, color: "#475569" }}
-                numberOfLines={2}
-              >
-                {item.motivo}
-              </Text>
-            </View>
-            <View
-              style={{
-                flex: 1,
-                alignItems: "flex-end",
-                justifyContent: "center",
-                paddingHorizontal: 10,
-              }}
-            >
-              <Text style={[styles.quantityMobile, { color: colorCantidad }]}>
-                {cantidadFormateada} uds.
-              </Text>
-            </View>
-            <View
-              style={{
-                flex: 0.8,
-                alignItems: "flex-end",
-                justifyContent: "center",
-                paddingLeft: 10,
-              }}
-            >
-              <BadgeTipo tipo={item.tipo_movimiento} motivo={item.motivo} />
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={styles.cardRowMobile}>
-              <Text style={styles.dateMobile}>
-                {fecha} • {hora}
-              </Text>
-              <BadgeTipo tipo={item.tipo_movimiento} motivo={item.motivo} />
-            </View>
-            <Text style={styles.productNameMobile}>{nombreProducto}</Text>
-            <Text style={styles.productCodeMobile}>{codigoProducto}</Text>
-            <View style={[styles.cardRowMobile, { alignItems: "flex-start" }]}>
-              <Text
-                style={[
-                  styles.quantityMobile,
-                  { color: colorCantidad, marginTop: 2 },
-                ]}
-              >
-                {cantidadFormateada} uds.
-              </Text>
-              <Text style={styles.reasonMobile}>{item.motivo}</Text>
-            </View>
-          </>
-        )}
+      <View style={styles.cardMobile}>
+        <View style={styles.cardRowMobile}>
+          <Text style={styles.dateMobile}>
+            {fecha} • {hora}
+          </Text>
+          <BadgeTipo tipo={item.tipo_movimiento} motivo={item.motivo} />
+        </View>
+        <Text style={styles.productNameMobile}>{nombreProducto}</Text>
+        <Text style={styles.productCodeMobile}>{codigoProducto}</Text>
+        <View style={[styles.cardRowMobile, { alignItems: "flex-start" }]}>
+          <Text
+            style={[
+              styles.quantityMobile,
+              { color: colorCantidad, marginTop: 2 },
+            ]}
+          >
+            {cantidadFormateada} uds.
+          </Text>
+          <Text style={styles.reasonMobile}>{item.motivo}</Text>
+        </View>
       </View>
     );
   };
@@ -314,17 +278,41 @@ export default function MovimientosScreen() {
             style={[styles.btnHeaderAccion, { backgroundColor: "#b91c1c" }]}
             onPress={() => abrirModalRegistro("SALIDA")}
           >
-            <Text style={styles.txtBtnAccion}>- Salida</Text>
+            <Text style={styles.txtBtnAccion}>- Egreso de mercadería</Text>
           </TouchableOpacity>
 
           <View style={styles.filterContainer}>
             <Text style={styles.labelFiltro}>Mostrar:</Text>
-            <TouchableOpacity
-              style={styles.dropdownButton}
-              onPress={() => setModalFiltroVisible(true)}
-            >
-              <Text style={styles.dropdownButtonTxt}>{filtroTipo} ▼</Text>
-            </TouchableOpacity>
+            {Platform.OS === "web" ? (
+              <select
+                value={filtroTipo}
+                onChange={(e) => setFiltroTipo(e.target.value)}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  fontSize: "15px",
+                  backgroundColor: "#fff",
+                  outline: "none",
+                  color: "#0f172a",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                {opcionesFiltro.map((op) => (
+                  <option key={op} value={op}>
+                    {op}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={() => setModalFiltroVisible(true)}
+              >
+                <Text style={styles.dropdownButtonTxt}>{filtroTipo} ▼</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -338,7 +326,18 @@ export default function MovimientosScreen() {
         />
       </View>
 
-      <View style={styles.listContainer}>
+      <View
+        style={[
+          styles.listContainer,
+          isMobile && {
+            padding: 10,
+            backgroundColor: "transparent",
+            borderWidth: 0,
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+        ]}
+      >
         {loading ? (
           <ActivityIndicator
             size="large"
@@ -346,19 +345,50 @@ export default function MovimientosScreen() {
             style={{ marginTop: 40 }}
           />
         ) : (
-          <FlatList
-            data={movimientosFiltrados}
-            keyExtractor={(item, index) =>
-              item.id_registro?.toString() || index.toString()
-            }
-            renderItem={renderItem}
-            contentContainerStyle={{ paddingBottom: 40 }}
-            ListEmptyComponent={
-              <Text style={styles.emptyTxt}>
-                No se encontraron movimientos.
-              </Text>
-            }
-          />
+          <View style={{ flex: 1 }}>
+            {!isMobile && (
+              <View style={styles.encabezadoRow}>
+                <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                  FECHA Y HORA
+                </Text>
+                <Text style={[styles.celdaEncabezado, { width: 250 }]}>
+                  PRODUCTO
+                </Text>
+                <Text style={[styles.celdaEncabezado, { flex: 1 }]}>
+                  MOTIVO / REFERENCIA
+                </Text>
+                <Text
+                  style={[
+                    styles.celdaEncabezado,
+                    { width: 100, textAlign: "center" },
+                  ]}
+                >
+                  CANTIDAD
+                </Text>
+                <Text
+                  style={[
+                    styles.celdaEncabezado,
+                    { width: 120, textAlign: "right" },
+                  ]}
+                >
+                  TIPO
+                </Text>
+              </View>
+            )}
+            <FlatList
+              data={movimientosFiltrados}
+              keyExtractor={(item, index) =>
+                item.id_registro?.toString() || index.toString()
+              }
+              renderItem={renderItem}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              ListEmptyComponent={
+                <Text style={styles.emptyTxt}>
+                  No se encontraron movimientos.
+                </Text>
+              }
+            />
+          </View>
         )}
       </View>
 
@@ -429,7 +459,7 @@ export default function MovimientosScreen() {
             >
               {tipoRegistro === "ENTRADA"
                 ? "Ingresar Mercadería"
-                : "Retirar Mercadería"}
+                : "Egreso de mercadería"}
             </Text>
 
             <Text style={styles.label}>Producto *</Text>
@@ -454,7 +484,11 @@ export default function MovimientosScreen() {
             <Text style={styles.label}>Motivo *</Text>
             <TextInput
               style={styles.modalInputText}
-              placeholder="Ej: Remito de compra #4512"
+              placeholder={
+                tipoRegistro === "SALIDA"
+                  ? "Ej: Remito de venta"
+                  : "Ej: Remito de compra #4512"
+              }
               value={regMotivo}
               onChangeText={setRegMotivo}
             />
@@ -502,9 +536,13 @@ export default function MovimientosScreen() {
                     setModalSelectorVisible(false);
                   }}
                 >
+                  {/* FORMATEO DE STOCK EN LA LISTA DESPLEGABLE */}
                   <Text style={styles.selectorItemTxt}>
                     {item.nombre_producto} (Stock actual:{" "}
-                    {item.stock_unidades || 0})
+                    {Number(item.stock_unidades || 0).toLocaleString("es-AR", {
+                      maximumFractionDigits: 2,
+                    })}
+                    )
                   </Text>
                 </TouchableOpacity>
               )}
@@ -536,7 +574,6 @@ const styles = StyleSheet.create({
   },
   tituloPrincipal: { fontSize: 28, fontWeight: "bold", color: "#0f172a" },
   subtitulo: { fontSize: 14, color: "#64748b", marginTop: 4 },
-
   headerActionBtns: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -550,7 +587,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   txtBtnAccion: { color: "#fff", fontWeight: "bold" },
-
   filterContainer: { flexDirection: "row", alignItems: "center", gap: 8 },
   labelFiltro: { fontSize: 14, color: "#475569", fontWeight: "600" },
   dropdownButton: {
@@ -563,7 +599,6 @@ const styles = StyleSheet.create({
     minWidth: 140,
   },
   dropdownButtonTxt: { color: "#0f172a", fontSize: 15, fontWeight: "600" },
-
   searchContainer: { marginBottom: 20 },
   searchInput: {
     backgroundColor: "#fff",
@@ -576,16 +611,42 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    padding: Platform.OS === "web" ? 20 : 10,
+    padding: 20,
     overflow: "hidden",
   },
-
+  encabezadoRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#cbd5e1",
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    backgroundColor: "#ffffff",
+  },
+  celdaEncabezado: { fontSize: 12, fontWeight: "bold", color: "#64748b" },
+  filaCuadro: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+    paddingVertical: 16,
+    paddingHorizontal: 15,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+  },
+  celda: { paddingHorizontal: 5, justifyContent: "center" },
+  textoPrincipal: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1e293b",
+    marginBottom: 2,
+  },
+  textoSecundario: { fontSize: 13, color: "#94a3b8" },
+  textoNormal: { fontSize: 14, color: "#475569" },
   cardMobile: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ffffff",
     borderRadius: 8,
     padding: 16,
     marginBottom: 12,
@@ -619,7 +680,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginLeft: 10,
   },
-
   badge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   badgeTxt: { fontSize: 12, fontWeight: "bold", textTransform: "uppercase" },
   emptyTxt: {
@@ -628,10 +688,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
     fontSize: 16,
   },
-
-  modalOverlayLigero: {
-    flex: 1,
-  },
+  modalOverlayLigero: { flex: 1 },
   modalOverlayOscuro: {
     flex: 1,
     justifyContent: "center",
