@@ -1,4 +1,5 @@
 import { useEmpresa } from "@/context/empresaContext";
+import { getMedidas } from "@/service/medida";
 import {
   asignarStockARevendedor,
   crearNuevoRevendedor,
@@ -9,7 +10,7 @@ import {
   procesarDevolucion,
   procesarVenta,
 } from "@/service/stock_revendedor";
-import { StockRevendedor, Usuario } from "@/types/types";
+import { Medida, StockRevendedor, Usuario } from "@/types/types";
 import { imprimirPDF } from "@/utils/impresora";
 import { BlurView } from "expo-blur";
 import React, { useEffect, useState } from "react";
@@ -32,12 +33,14 @@ import {
 export default function StockRevendedorScreen() {
   const { empresa } = useEmpresa();
   const { width } = useWindowDimensions();
-  const isMobile = width < 768; // Detecta si es celu para apilar las cosas
+  const isMobile = width < 768;
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [stock, setStock] = useState<StockRevendedor[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
+  const [medidas, setMedidas] = useState<Medida[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [modalDevolucionVisible, setModalDevolucionVisible] = useState(false);
   const [modalVentaVisible, setModalVentaVisible] = useState(false);
   const [itemSeleccionado, setItemSeleccionado] =
@@ -99,7 +102,6 @@ export default function StockRevendedorScreen() {
     if (soloNumeros.length > 2) {
       formateado = soloNumeros.slice(0, 2) + "/" + soloNumeros.slice(2);
     }
-
     if (soloNumeros.length > 4) {
       formateado =
         soloNumeros.slice(0, 2) +
@@ -108,7 +110,6 @@ export default function StockRevendedorScreen() {
         "/" +
         soloNumeros.slice(4, 8);
     }
-
     setFecha(formateado);
   };
 
@@ -117,15 +118,34 @@ export default function StockRevendedorScreen() {
     setLoading(true);
     const data = await obtenerRevendedoresYStock(empresa.id_empresa);
     const prods = await obtenerProductosParaAsignar(empresa.id_empresa);
+    const meds = await getMedidas(empresa.id_empresa); // Traemos medidas
+
     setUsuarios(data.usuarios);
     setStock(data.stock);
     setProductos(prods);
+    setMedidas(meds);
     setLoading(false);
   };
 
   useEffect(() => {
     cargarDatos();
   }, [empresa]);
+
+  const validarDecimales = (cantidad: number, id_producto: number) => {
+    const producto = productos.find((p) => p.id_producto === id_producto);
+    if (!producto) return true; // Por las dudas
+
+    const medida = medidas.find((m) => m.id_medida === producto.id_medida);
+    if (!medida) return true;
+    if (!medida.permite_decimales && !Number.isInteger(cantidad)) {
+      Alert.alert(
+        "Atención",
+        `El producto "${producto.nombre_producto}" se mide en ${medida.nombre_tipo}, no podés ingresar cantidades con coma o punto.`,
+      );
+      return false;
+    }
+    return true;
+  };
 
   const handleAbrirVenta = (item: StockRevendedor) => {
     setItemSeleccionado(item);
@@ -135,7 +155,8 @@ export default function StockRevendedorScreen() {
 
   const confirmarVenta = async () => {
     if (!empresa) return;
-    const cant = parseFloat(cantidadInput);
+    const cant = parseFloat(cantidadInput.replace(",", "."));
+
     if (
       !itemSeleccionado ||
       isNaN(cant) ||
@@ -144,6 +165,8 @@ export default function StockRevendedorScreen() {
     ) {
       return Alert.alert("Error", "Cantidad inválida.");
     }
+    if (!validarDecimales(cant, itemSeleccionado.id_producto)) return;
+
     setModalVentaVisible(false);
     setLoading(true);
     const exito = await procesarVenta(
@@ -166,7 +189,8 @@ export default function StockRevendedorScreen() {
 
   const confirmarDevolucion = async () => {
     if (!empresa) return;
-    const cant = parseFloat(cantidadInput);
+    const cant = parseFloat(cantidadInput.replace(",", "."));
+
     if (
       !itemSeleccionado ||
       isNaN(cant) ||
@@ -175,6 +199,10 @@ export default function StockRevendedorScreen() {
     ) {
       return Alert.alert("Error", "Cantidad inválida.");
     }
+
+    // VALIDACIÓN DECIMAL
+    if (!validarDecimales(cant, itemSeleccionado.id_producto)) return;
+
     setModalDevolucionVisible(false);
     setLoading(true);
     const exito = await procesarDevolucion(
@@ -278,13 +306,15 @@ export default function StockRevendedorScreen() {
 
   const handleConfirmarAsignacion = async () => {
     if (!empresa) return;
-    const cantidadFinal = parseFloat(asignarCantidad);
+    const cantidadFinal = parseFloat(asignarCantidad.replace(",", "."));
+
     if (!asignarIdUsuario)
       return Alert.alert("Atención", "Seleccioná un revendedor.");
     if (!asignarIdProducto)
       return Alert.alert("Atención", "Seleccioná un producto.");
     if (isNaN(cantidadFinal) || cantidadFinal <= 0)
       return Alert.alert("Atención", "Ingresá una cantidad válida.");
+    if (!validarDecimales(cantidadFinal, asignarIdProducto)) return;
 
     setLoading(true);
     const resultado = await asignarStockARevendedor(
@@ -375,8 +405,8 @@ export default function StockRevendedorScreen() {
       usuariosAImprimir.forEach((usuario) => {
         const stockFiltrado = stock.filter((s) => {
           if (s.id_usuario !== usuario.id_usuario) return false;
-          if (!(s as any).created_at) return true;
-          const fechaMov = new Date((s as any).created_at);
+          if (!s.fecha_entrega) return true;
+          const fechaMov = new Date(s.fecha_entrega);
           return fechaMov >= dateInicio && fechaMov <= dateFin;
         });
 
@@ -392,11 +422,13 @@ export default function StockRevendedorScreen() {
           `;
           let totalVentasRevendedor = 0;
           stockFiltrado.forEach((s) => {
-            const nombreProd = (s as any).producto?.nombre_producto || "S/C";
-            const precioVenta = (s as any).producto?.precio_venta || 0;
+            const nombreProd = s.producto?.nombre_producto || "S/C";
+            const precioVenta = s.producto?.precio_venta || 0;
             const subtotal = s.cantidad * precioVenta;
-            const fechaStr = (s as any).created_at
-              ? new Date((s as any).created_at).toLocaleDateString("es-AR")
+
+            // USAMOS fecha_entrega
+            const fechaStr = s.fecha_entrega
+              ? new Date(s.fecha_entrega).toLocaleDateString("es-AR")
               : "-";
 
             let claseEstado = "devuelto",
@@ -413,12 +445,12 @@ export default function StockRevendedorScreen() {
                 <td>${fechaStr}</td><td><b>${nombreProd}</b></td>
                 <td style="text-align:center;"><span class="badge ${claseEstado}">${s.estado}</span></td>
                 <td style="text-align:center;">${s.cantidad}</td>
-                <td style="text-align:right;">$ ${precioVenta.toLocaleString("es-AR")}</td>
-                <td style="text-align:right; font-weight:bold;">$ ${subtotal.toLocaleString("es-AR")}</td>
+                <td style="text-align:right;">$ ${precioVenta.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                <td style="text-align:right; font-weight:bold;">$ ${subtotal.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
               </tr>
             `;
           });
-          htmlContent += `</tbody></table><div class="total-box">TOTAL VENTAS CONCRETADAS: $ ${totalVentasRevendedor.toLocaleString("es-AR")}</div>`;
+          htmlContent += `</tbody></table><div class="total-box">TOTAL VENTAS CONCRETADAS: $ ${totalVentasRevendedor.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</div>`;
         }
       });
       htmlContent += `</body></html>`;
@@ -444,7 +476,7 @@ export default function StockRevendedorScreen() {
       <View style={styles.stockCard}>
         <View style={styles.stockInfo}>
           <Text style={styles.stockTitle}>
-            {(item as any).producto?.nombre_producto}
+            {item.producto?.nombre_producto}
           </Text>
           <Text style={styles.stockSubtitle}>En poder: {item.cantidad}</Text>
         </View>
@@ -487,22 +519,11 @@ export default function StockRevendedorScreen() {
                 setRevId(usuario.id_usuario);
                 setRevNombre(usuario.nombre_usuario);
                 setRevRol(usuario.rol);
-                const desc = (usuario as any).descuento?.toString() || "";
-                const bonif = usuario.bonificacion?.toString() || "";
-                if (desc) {
-                  setRevDescuento(desc);
-                  setRevBonificacion("");
-                } else if (bonif) {
-                  setRevBonificacion(bonif);
-                  setRevDescuento("");
-                } else {
-                  setRevDescuento("");
-                  setRevBonificacion("");
-                }
+                const desc = usuario.bonificacion?.toString() || "";
+                if (desc) setRevBonificacion(desc);
+                else setRevBonificacion("");
 
-                setRevPermiteDevolucion(
-                  (usuario as any).permite_devolucion || false,
-                );
+                setRevPermiteDevolucion(usuario.permite_devolucion || false);
                 setModalEditarRevVisible(true);
               }}
             >
@@ -554,6 +575,7 @@ export default function StockRevendedorScreen() {
                 );
                 let bStyle = styles.badgeDefault,
                   bTxtStyle = styles.badgeTxtDefault;
+
                 if (fila.estado === "En poder") {
                   bStyle = styles.badgeEnPoder;
                   bTxtStyle = styles.badgeTxtEnPoder;
@@ -562,14 +584,13 @@ export default function StockRevendedorScreen() {
                   bStyle = styles.badgeVendido;
                   bTxtStyle = styles.badgeTxtVendido;
                 }
-
-                const d = (fila as any).created_at
-                  ? new Date((fila as any).created_at)
+                const d = fila.fecha_entrega
+                  ? new Date(fila.fecha_entrega)
                   : new Date();
                 const fechaStr = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear().toString().slice(-2)}`;
+
                 const nombreRev = rev ? rev.nombre_usuario : "S/C";
-                const nombreProd =
-                  (fila as any).producto?.nombre_producto || "S/C";
+                const nombreProd = fila.producto?.nombre_producto || "S/C";
 
                 return (
                   <View
@@ -1172,8 +1193,6 @@ export default function StockRevendedorScreen() {
                 ))}
               </ScrollView>
             )}
-
-            {/* VISTA DE FECHAS CORREGIDA PARA CELULAR Y WEB */}
             <View
               style={{
                 flexDirection: isMobile ? "column" : "row",
@@ -1262,7 +1281,6 @@ export default function StockRevendedorScreen() {
                 )}
               </View>
             </View>
-
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.modalBtnCancel}
