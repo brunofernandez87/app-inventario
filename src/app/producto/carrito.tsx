@@ -1,6 +1,7 @@
 import { useAuth } from "@/context/authContext";
 import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
+import { useListaVenta } from "@/context/listaVentaContext";
 import { crearDetalleVenta } from "@/service/detalle_venta";
 import { getMedidas } from "@/service/medida";
 import { notificaciones } from "@/service/notificaciones";
@@ -24,6 +25,7 @@ export default function Carrito() {
   const [descuento, setDescuento] = useState("0");
   const [porcentaje, setPorcentaje] = useState(false);
   const { listaCarrito, setListaCarrito, vaciarCarrito } = useListaCarrito();
+  const { fetchVenta } = useListaVenta();
   const celular = width < 768;
   const totalCompra = listaCarrito.reduce((acumulador, item) => {
     const cantidad = item.cantidad || 1;
@@ -213,6 +215,7 @@ export default function Carrito() {
     });
     const detalle = await crearDetalleVenta(nuevoDetalle);
     if (detalle) {
+      await fetchVenta();
       notificaciones.exito("resultado compra", "Venta realizada con exito");
       vaciarCarrito();
     } else {
