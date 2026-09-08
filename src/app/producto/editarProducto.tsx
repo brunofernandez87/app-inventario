@@ -1,6 +1,7 @@
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
 import { getMedidas } from "@/service/medida";
+import { notificaciones } from "@/service/notificaciones";
 import { editarProducto } from "@/service/producto";
 import { Picker } from "@react-native-picker/picker";
 import { useEffect, useState } from "react";
@@ -107,7 +108,10 @@ export default function EditarProducto({ onClose, producto }) {
       return;
     }
     if (medida == null) {
-      alert("Error: Seleccione una medida válida");
+      notificaciones.error(
+        "Edicion Producto",
+        "Error: Seleccione una medida válida",
+      );
       return;
     }
     const nuevoProducto = {
@@ -130,7 +134,10 @@ export default function EditarProducto({ onClose, producto }) {
     const respuesta = await editarProducto(nuevoProducto, id_empresa);
     if (respuesta) {
       await fetchProducts();
-      alert("El producto se edito correctamente");
+      notificaciones.exito(
+        "Edicion del producto",
+        "El producto se edito correctamente",
+      );
       onClose();
     }
   };

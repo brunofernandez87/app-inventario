@@ -2,6 +2,7 @@ import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
 import { getMedidas } from "@/service/medida";
+import { notificaciones } from "@/service/notificaciones";
 import {
   eliminarProducto,
   obtenerAlertaProyeccion,
@@ -158,7 +159,10 @@ export default function ListaProductos() {
       // Si lo encuentra, abrimos la tarjeta de opciones de ese producto
       abrirOpciones(productoEncontrado);
     } else {
-      alert("Producto no encontrado en el inventario.");
+      notificaciones.error(
+        "problema producto",
+        "Producto no encontrado en el inventario.",
+      );
     }
   };
 
@@ -197,7 +201,7 @@ export default function ListaProductos() {
     );
     if (respuesta == true) {
       await fetchProducts();
-      alert("producto eliminado"); //cambiar por una notificacion
+      notificaciones.exito("eliminacion producto", "producto eliminado"); //cambiar por una notificacion
       setModalEliminar(false);
     }
   };

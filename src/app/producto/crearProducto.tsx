@@ -1,6 +1,7 @@
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
 import { getMedidas } from "@/service/medida";
+import { notificaciones } from "@/service/notificaciones";
 import { crearProducto } from "@/service/producto";
 import { Medida } from "@/types/types";
 import { Picker } from "@react-native-picker/picker";
@@ -85,11 +86,14 @@ export default function CreacionProducto({ onClose }) {
       "200" + Math.floor(1000000000 + Math.random() * 9000000000).toString();
     const id_empresa = empresa?.id_empresa;
     if (id_empresa == null) {
-      alert("Error al crear producto");
+      notificaciones.error("Creacion del producto", "Error al crear producto");
       return;
     }
     if (medida == null) {
-      alert("Error: Seleccione una medida válida");
+      notificaciones.error(
+        "Creacion de producto",
+        "Error: Seleccione una medida válida",
+      );
       return;
     }
     const nuevoProducto = {
@@ -111,7 +115,10 @@ export default function CreacionProducto({ onClose }) {
     const respuesta = await crearProducto(nuevoProducto);
     if (respuesta) {
       await fetchProducts();
-      alert("El producto se creo correctamente");
+      notificaciones.exito(
+        "Creacion de producto",
+        "El producto se creo correctamente",
+      );
       onClose();
     }
   };

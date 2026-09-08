@@ -3,6 +3,7 @@ import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
 import { crearDetalleVenta } from "@/service/detalle_venta";
 import { getMedidas } from "@/service/medida";
+import { notificaciones } from "@/service/notificaciones";
 import { crearVenta } from "@/service/venta";
 import { Venta } from "@/types/types";
 import { useCallback, useEffect, useState } from "react";
@@ -189,7 +190,10 @@ export default function Carrito() {
     };
     const venta = await crearVenta(nuevaVenta);
     if (!venta) {
-      return alert("Error al registrar la venta");
+      return notificaciones.error(
+        "Error con la compra",
+        "Error al registrar la venta",
+      );
     }
     const nuevoDetalle = listaCarrito.map((p) => {
       let paquete_cerrado = false;
@@ -209,10 +213,13 @@ export default function Carrito() {
     });
     const detalle = await crearDetalleVenta(nuevoDetalle);
     if (detalle) {
-      alert("Venta realizada con exito");
+      notificaciones.exito("resultado compra", "Venta realizada con exito");
       vaciarCarrito();
     } else {
-      return alert("Error al registrar la venta");
+      return notificaciones.error(
+        "Problema con la compra",
+        "Error al registrar la venta",
+      );
     }
   };
 
@@ -297,7 +304,9 @@ export default function Carrito() {
               </Pressable>
             </View>
             <View style={styles.footerContainer}>
-              <Text style={styles.textoTotal}>Total: {total().toFixed(2)}</Text>
+              <Text style={styles.textoTotal}>
+                Total: {total().toLocaleString("es-AR")}
+              </Text>
             </View>
 
             <View>
