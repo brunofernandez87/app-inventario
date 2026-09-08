@@ -1,22 +1,63 @@
 import { useListaVenta } from "@/context/listaVentaContext";
 import { router, Stack } from "expo-router";
-import { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
+import { Dropdown } from "react-native-element-dropdown";
 
 export default function Venta() {
+  const { width } = useWindowDimensions();
   const { listaVenta, cargando } = useListaVenta();
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_venta.toString(),
     [],
   );
-
+  const [listaFiltrada, setListaFiltrada] = useState(listaVenta);
+  const [cliente, setCliente] = useState("Todos");
+  const [usuario, setUsuario] = useState("Todos");
+  const listaCliente = [
+    { label: "Todos los clientes", value: "Todos" },
+    ...Array.from(new Set(listaVenta.map((v) => v.cliente)))
+      .filter(
+        (cliente) =>
+          cliente !== null && cliente !== undefined && cliente !== "",
+      )
+      .map((c) => ({
+        label: c,
+        value: c,
+      })),
+  ];
+  const listaUsuarios = [
+    { label: "Todos los usuarios", value: "Todos" },
+    ...Array.from(new Set(listaVenta.map((v) => v.usuario?.nombre_usuario)))
+      .filter(
+        (usuario) =>
+          usuario !== null && usuario !== undefined && usuario !== "",
+      )
+      .map((u) => ({
+        label: u,
+        value: u,
+      })),
+  ];
+  useEffect(() => {
+    let resultado = listaVenta;
+    if (cliente != "Todos") {
+      resultado = resultado.filter((v) => v.cliente === cliente);
+    }
+    if (usuario != "Todos") {
+      resultado = resultado.filter(
+        (v) => v.usuario?.nombre_usuario === usuario,
+      );
+    }
+    setListaFiltrada(resultado);
+  }, [listaVenta, cliente, usuario]);
   const renderItem = useCallback(({ item }: { item: any }) => {
     const fechaFormateada = new Date(item.fecha_venta).toLocaleDateString(
       "es-AR",
@@ -87,16 +128,50 @@ export default function Venta() {
       </Pressable>
     );
   }, []);
+
   return (
     <View style={{ flex: 1, padding: 20 }}>
       <Stack.Screen options={{ title: "Historial de Ventas" }} />
       <Text style={styles.titulo}>Historial de ventas</Text>
       {cargando ? (
         <Text style={styles.textoMensaje}>Cargando...</Text>
-      ) : listaVenta.length === 0 ? (
+      ) : listaFiltrada.length === 0 ? (
         <Text style={styles.textoMensaje}>No hay ventas registradas.</Text>
       ) : (
         <View style={styles.contenedorTabla}>
+          <View
+            style={[
+              styles.contenedorFiltros,
+              { flexDirection: width < 768 ? "column" : "row" },
+            ]}
+          >
+            <Dropdown
+              style={styles.dropdown}
+              data={listaCliente}
+              search={true}
+              searchPlaceholder="Escribi el nombre del cliente..."
+              labelField="label"
+              valueField="value"
+              placeholder="seleccionar cliente"
+              value={cliente}
+              onChange={(item) => {
+                setCliente(item.value);
+              }}
+            />
+            <Dropdown
+              style={styles.dropdown}
+              data={listaUsuarios}
+              search={true}
+              searchPlaceholder="Escribi el nombre del usuario..."
+              labelField="label"
+              valueField="value"
+              placeholder="seleccionar usuario"
+              value={usuario}
+              onChange={(item) => {
+                setUsuario(item.value);
+              }}
+            />
+          </View>
           <ScrollView horizontal={true} style={{ flex: 1 }}>
             <View style={{ minWidth: 800, width: "100%" }}>
               <View style={styles.encabezadoRow}>
@@ -124,7 +199,7 @@ export default function Venta() {
               <FlatList
                 // flatList ya viene con scroll view y podes limitar las columnas con num columns
                 // es el arreglo que va a recorrer
-                data={listaVenta}
+                data={listaFiltrada}
                 // sirve para saber cual es la clave de cada fila tiene que ser string lo que se pasa en key extractor
                 keyExtractor={memoizedKeyExtractor}
                 // se le muestra como muestra el item desestructurandolo
@@ -206,5 +281,23 @@ const styles = StyleSheet.create({
   textoBadge: {
     fontSize: 12,
     fontWeight: "700",
+  },
+  contenedorFiltros: {
+    gap: 15,
+    marginBottom: 20,
+    backgroundColor: "#f8fafc",
+    padding: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  dropdown: {
+    flex: 1, // Hace que ocupen el mismo ancho si están en fila
+    height: 45,
+    borderColor: "#cbd5e1",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#ffffff",
   },
 });
