@@ -146,7 +146,7 @@ export default function Venta() {
             ]}
           >
             <Dropdown
-              style={styles.dropdown}
+              style={[styles.dropdown, width >= 768 && { flex: 1 }]}
               data={listaCliente}
               search={true}
               searchPlaceholder="Escribi el nombre del cliente..."
@@ -159,7 +159,7 @@ export default function Venta() {
               }}
             />
             <Dropdown
-              style={styles.dropdown}
+              style={[styles.dropdown, width >= 768 && { flex: 1 }]}
               data={listaUsuarios}
               search={true}
               searchPlaceholder="Escribi el nombre del usuario..."
@@ -292,7 +292,6 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
   },
   dropdown: {
-    flex: 1, // Hace que ocupen el mismo ancho si están en fila
     height: 45,
     borderColor: "#cbd5e1",
     borderWidth: 1,
