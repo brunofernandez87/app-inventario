@@ -52,13 +52,14 @@ export const obtenerVenta = async (id: number, id_empresa: number) => {
     return null;
   }
 };
-type CreacionVenta = Omit<Venta, "id_venta">;
+type CreacionVenta = Omit<Venta, "id_venta" | "fecha_venta">;
 export const crearVenta = async (data_venta: CreacionVenta) => {
   try {
     const { data, error } = await supabase
       .from("venta")
       .insert(data_venta)
-      .select();
+      .select()
+      .single();
     if (error) {
       console.error("Error en la base de datos", error.message);
       return null;

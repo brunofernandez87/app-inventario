@@ -1,6 +1,10 @@
+import { useAuth } from "@/context/authContext";
 import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
+import { crearDetalleVenta } from "@/service/detalle_venta";
 import { getMedidas } from "@/service/medida";
+import { crearVenta } from "@/service/venta";
+import { Venta } from "@/types/types";
 import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
@@ -24,6 +28,7 @@ export default function Carrito() {
     const cantidad = item.cantidad || 1;
     return acumulador + item.precio_venta * cantidad;
   }, 0);
+  const { usuario } = useAuth();
   const { empresa } = useEmpresa();
   useEffect(() => {
     const buscarMedidas = async () => {
@@ -164,19 +169,51 @@ export default function Carrito() {
         const porcentajeDescuento = Number(descuento);
         const totalDescuento = totalCompra * (porcentajeDescuento / 100);
         const total = totalCompra - totalDescuento;
-        return total.toFixed(2);
+        return total;
       } else {
         const total = totalCompra - Number(descuento);
-        return total.toFixed(2);
+        return total;
       }
     } else {
-      return totalCompra.toFixed(2);
+      return totalCompra;
     }
   };
-  const comprar = () => {
-    vaciarCarrito();
-    alert("compra realizada");
-    //utilizar mas adelante el service de venta
+  const comprar = async () => {
+    const totalDescuento = total();
+    const nuevaVenta: Omit<Venta, "id_venta" | "fecha_venta"> = {
+      id_empresa: Number(empresa?.id_empresa),
+      id_usuario: Number(usuario?.id_usuario),
+      total: Number(totalDescuento),
+      estado: "finalizado",
+      cliente: "juan",
+    };
+    const venta = await crearVenta(nuevaVenta);
+    if (!venta) {
+      return alert("Error al registrar la venta");
+    }
+    const nuevoDetalle = listaCarrito.map((p) => {
+      let paquete_cerrado = false;
+      if (p.cantidad == p.unidades_por_paquete) {
+        paquete_cerrado = true;
+      } else {
+        paquete_cerrado = false;
+      }
+      return {
+        id_venta: venta.id_venta,
+        id_producto: p.id_producto,
+        cantidad: p.cantidad,
+        es_paquete_cerrado: paquete_cerrado,
+        precio_unitario: p.precio_venta,
+        subtotal: p.precio_venta * p.cantidad,
+      };
+    });
+    const detalle = await crearDetalleVenta(nuevoDetalle);
+    if (detalle) {
+      alert("Venta realizada con exito");
+      vaciarCarrito();
+    } else {
+      return alert("Error al registrar la venta");
+    }
   };
 
   return (
@@ -235,9 +272,13 @@ export default function Carrito() {
               <Text style={styles.textoTotal}>Descuento opcional:</Text>
               <TextInput
                 value={descuento}
-                onChangeText={setDescuento}
+                onChangeText={(texto) => {
+                  const limpio = texto.replace(/[^0-9.]/g, "");
+                  setDescuento(limpio);
+                }}
                 placeholder="0"
                 placeholderTextColor="#9ca3af"
+                keyboardType="numeric"
               />
               <Pressable
                 onPress={() => setPorcentaje(!porcentaje)}
@@ -256,7 +297,7 @@ export default function Carrito() {
               </Pressable>
             </View>
             <View style={styles.footerContainer}>
-              <Text style={styles.textoTotal}>Total: {total()}</Text>
+              <Text style={styles.textoTotal}>Total: {total().toFixed(2)}</Text>
             </View>
 
             <View>
