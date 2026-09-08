@@ -1,44 +1,94 @@
+import { Medida } from "@/types/types";
 import { supabase } from "../database/supabase";
-import { TipoVenta } from "../types/types"; // Mantenemos tu interface TipoVenta si no la cambiaste en types.ts
 
-export const getMedidas = async (idEmpresa: number): Promise<TipoVenta[]> => {
-  const { data, error } = await supabase
-    .from("medida")
-    .select("*")
-    .eq("id_empresa", idEmpresa)
-    .order("nombre_tipo", { ascending: true });
+export const getMedidas = async (id_empresa: number): Promise<Medida[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("medida")
+      .select("*")
+      .eq("id_empresa", id_empresa)
+      .order("nombre_tipo", { ascending: true });
 
-  if (error) {
-    console.error("Error al obtener medidas:", error);
-    throw new Error(error.message);
+    if (error) {
+      console.error("Error al obtener medidas:", error.message);
+      return [];
+    }
+    return data || [];
+  } catch (error) {
+    console.error("Error de conexion/ejecucion: ", error);
+    return [];
   }
-  return data as TipoVenta[];
 };
 
-export const addMedida = async (
-  medida: Omit<TipoVenta, "id_medida">,
-): Promise<TipoVenta> => {
-  const { data, error } = await supabase
-    .from("medida")
-    .insert([medida])
-    .select()
-    .single();
+export const crearMedida = async (
+  id_empresa: number,
+  nombre_tipo: string,
+  abreviacion: string,
+  permite_decimales?: boolean,
+) => {
+  try {
+    const payload = {
+      id_empresa,
+      nombre_tipo,
+      abreviacion,
+      permite_decimales: Boolean(permite_decimales),
+    };
 
-  if (error) {
-    console.error("Error al agregar medida:", error);
-    throw new Error(error.message);
+    const { data, error } = await supabase
+      .from("medida")
+      .insert(payload)
+      .select();
+
+    if (error) return { exito: false, msj: error.message };
+    return { exito: true };
+  } catch (err: any) {
+    return { exito: false, msj: err.message };
   }
-  return data as TipoVenta;
 };
 
-export const deleteMedida = async (idMedida: number): Promise<void> => {
-  const { error } = await supabase
-    .from("medida")
-    .delete()
-    .eq("id_medida", idMedida);
+export const editarMedida = async (
+  id_medida: number,
+  id_empresa: number,
+  nombre_tipo: string,
+  abreviacion: string,
+  permite_decimales?: boolean,
+) => {
+  try {
+    const { data, error } = await supabase
+      .from("medida")
+      .update({
+        nombre_tipo,
+        abreviacion,
+        permite_decimales: Boolean(permite_decimales),
+      })
+      .eq("id_medida", id_medida)
+      .eq("id_empresa", id_empresa)
+      .select();
 
-  if (error) {
-    console.error("Error al eliminar medida:", error);
-    throw new Error(error.message);
+    if (error) return { exito: false, msj: error.message };
+    if (!data || data.length === 0)
+      return {
+        exito: false,
+        msj: "Supabase no encontró la medida para editar.",
+      };
+
+    return { exito: true };
+  } catch (err: any) {
+    return { exito: false, msj: err.message };
+  }
+};
+
+export const eliminarMedida = async (id_medida: number, id_empresa: number) => {
+  try {
+    const { error } = await supabase
+      .from("medida")
+      .delete()
+      .eq("id_medida", id_medida)
+      .eq("id_empresa", id_empresa);
+
+    if (error) return { exito: false, msj: error.message };
+    return { exito: true };
+  } catch (err: any) {
+    return { exito: false, msj: err.message };
   }
 };

@@ -25,6 +25,7 @@ import {
 } from "react-native";
 import { imprimirPDF } from "../../utils/impresora";
 import EscanerModal from "../escaner/escanerModal";
+import GestionarMedidas from "../medida/medida";
 import Carrito from "../producto/carrito";
 import CodigoProducto from "../producto/codigoProducto";
 import CreacionProducto from "../producto/crearProducto";
@@ -38,6 +39,8 @@ export default function ListaProductos() {
   const [productoAEditar, setProductoAEditar] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [opcionesVisible, setOpcionesVisible] = useState(false);
+  const [modalMedidasVisible, setModalMedidasVisible] = useState(false);
+
   const [listaMedida, setListamedida] = useState([]);
   const { listaProducto, cargando, fetchProducts } = useListaProducto();
   const [modalElminar, setModalEliminar] = useState(false);
@@ -48,6 +51,7 @@ export default function ListaProductos() {
   );
   const [lista, setLista] = useState(listaProducto);
   const { empresa } = useEmpresa();
+
   useEffect(() => {
     const buscarMedidas = async () => {
       if (!empresa?.id_empresa) return;
@@ -55,10 +59,13 @@ export default function ListaProductos() {
       setListamedida(medidas);
     };
     buscarMedidas();
-  }, [empresa]);
+  }, [empresa, modalMedidasVisible]);
+
   const renderItem = useCallback(
     ({ item }: { item: any }) => {
-      const medida = listaMedida.find((m) => m.id_medida === item.id_medida);
+      const medida = listaMedida.find(
+        (m: any) => m.id_medida === item.id_medida,
+      );
       const filaConAlerta = item.alerta_proyeccion
         ? { backgroundColor: "#fee2e2" }
         : {};
@@ -76,7 +83,7 @@ export default function ListaProductos() {
           style={({ pressed }) => [
             styles.fila,
             filaConAlerta,
-            pressed && { opacity: 0.6 }, // Efecto visual al mantener apretado
+            pressed && { opacity: 0.6 },
           ]}
         >
           <View style={[styles.celda, { width: 140 }]}>
@@ -88,7 +95,6 @@ export default function ListaProductos() {
             </Text>
           </View>
 
-          {/* Producto */}
           <View style={[styles.celda, { width: 250 }]}>
             <Text
               style={[styles.textoPrincipal, { fontSize: 15 }]}
@@ -97,11 +103,10 @@ export default function ListaProductos() {
               {item.nombre_producto}
             </Text>
             <Text style={styles.textoSecundario} numberOfLines={1}>
-              {item.marca} • {medida?.nombre_tipo}
+              {item.marca} • {(medida as any)?.nombre_tipo}
             </Text>
           </View>
 
-          {/* Ubicación */}
           <View
             style={[styles.celda, { width: 120, alignItems: "flex-start" }]}
           >
@@ -110,24 +115,20 @@ export default function ListaProductos() {
             </View>
           </View>
 
-          {/* Costo */}
           <View style={[styles.celda, { width: 100 }]}>
             <Text style={styles.textoNormal}>${item.costo_compra}</Text>
           </View>
 
-          {/* Precio */}
           <View style={[styles.celda, { width: 100 }]}>
             <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
               ${item.precio_venta}
             </Text>
           </View>
 
-          {/* Margen */}
           <View style={[styles.celda, { width: 90 }]}>
             <Text style={styles.textoVerde}>+{margen}%</Text>
           </View>
 
-          {/* Stock */}
           <View style={[styles.celda, { width: 100, alignItems: "center" }]}>
             <Text style={[styles.textoPrincipal, { fontSize: 15 }]}>
               {item.stock_unidades}
@@ -145,18 +146,14 @@ export default function ListaProductos() {
   const [modalCodigo, setModalCodigo] = useState(false);
   const [mostrarEscaner, setMostrarEscaner] = useState(false);
 
-  // procesa la lectura
-  const procesarCodigoLeido = (codigo) => {
+  const procesarCodigoLeido = (codigo: string) => {
     setMostrarEscaner(false);
-
-    // Buscamos el producto en tu lista actual por código de barras o alfanumérico
     const productoEncontrado = listaProducto.find(
       (item: Producto) =>
         item.codigo_barras === codigo || item.codigo_alfanumerico === codigo,
     );
 
     if (productoEncontrado) {
-      // Si lo encuentra, abrimos la tarjeta de opciones de ese producto
       abrirOpciones(productoEncontrado);
     } else {
       notificaciones.error(
@@ -190,18 +187,18 @@ export default function ListaProductos() {
       setLista(productoFiltrados);
     }
   };
-  const abrirOpciones = (producto_seleccionado) => {
+  const abrirOpciones = (producto_seleccionado: any) => {
     setProductoAEditar(producto_seleccionado);
     setOpcionesVisible(true);
   };
-  const eliminacionProducto = async (producto) => {
+  const eliminacionProducto = async (producto: any) => {
     const respuesta = await eliminarProducto(
       producto.id_producto,
       empresa?.id_empresa,
     );
     if (respuesta == true) {
       await fetchProducts();
-      notificaciones.exito("eliminacion producto", "producto eliminado"); //cambiar por una notificacion
+      notificaciones.exito("eliminacion producto", "producto eliminado");
       setModalEliminar(false);
     }
   };
@@ -210,7 +207,7 @@ export default function ListaProductos() {
       setLista(listaProducto);
     }
   }, [listaProducto, filterStockBajo, filterAlerta]);
-  //logica de impresion
+
   const imprimirListaPDF = async () => {
     const filasHTML = lista
       .map((item) => {
@@ -218,7 +215,6 @@ export default function ListaProductos() {
         const unidades = Number(item.unidades_por_paquete) || 0;
         const porcentajeDescuento = Number(item.bonificacion_paquete) || 0;
         const subtotal = precio * unidades;
-        // Calculamos el monto a descontar y se lo restamos al subtotal
         const totalBonificado =
           subtotal - subtotal * (porcentajeDescuento / 100);
         return `
@@ -280,6 +276,13 @@ export default function ListaProductos() {
         >
           <Text style={styles.textoBotonToolbar}>Crear Producto +</Text>
         </Pressable>
+        <Pressable
+          onPress={() => setModalMedidasVisible(true)}
+          style={styles.botonToolbar}
+        >
+          <Text style={styles.textoBotonToolbar}>Medidas</Text>
+        </Pressable>
+
         <Pressable style={styles.botonToolbar} onPress={imprimirListaPDF}>
           <Text style={styles.textoBotonToolbar}>Imprimir lista</Text>
         </Pressable>
@@ -343,15 +346,11 @@ export default function ListaProductos() {
       ) : (
         <View style={{ flex: 1 }}>
           {celular ? (
-            // ==========================================
-            // VISTA CELULAR: Scroll vertical global
-            // ==========================================
             <ScrollView
               style={{ flex: 1 }}
               contentContainerStyle={{ paddingBottom: 20, gap: 20 }}
               showsVerticalScrollIndicator={false}
             >
-              {/* CAJA PRODUCTOS: Altura fija de 450px para scrollear adentro */}
               <View style={[styles.contenedorTabla, { height: 450 }]}>
                 <ScrollView horizontal={true} style={{ flex: 1 }}>
                   <View style={{ flex: 1 }}>
@@ -390,13 +389,12 @@ export default function ListaProductos() {
                       initialNumToRender={15}
                       maxToRenderPerBatch={10}
                       windowSize={5}
-                      nestedScrollEnabled={true} // <-- FUNDAMENTAL PARA CELULARES
+                      nestedScrollEnabled={true}
                     />
                   </View>
                 </ScrollView>
               </View>
 
-              {/* CAJA CARRITO: Queda abajo y toma su altura natural */}
               <View style={[styles.contenedorTabla, { minHeight: 400 }]}>
                 <Carrito />
               </View>
@@ -405,7 +403,7 @@ export default function ListaProductos() {
             <View
               style={{
                 flex: 1,
-                flexDirection: celular ? "column" : "row",
+                flexDirection: "row",
                 gap: 20,
               }}
             >
@@ -442,14 +440,9 @@ export default function ListaProductos() {
                       </Text>
                     </View>
                     <FlatList
-                      // flatList ya viene con scroll view y podes limitar las columnas con num columns
-                      // es el arreglo que va a recorrer
                       data={lista}
-                      // sirve para saber cual es la clave de cada fila tiene que ser string lo que se pasa en key extractor
                       keyExtractor={memoizedKeyExtractor}
-                      // se le muestra como muestra el item desestructurandolo
                       renderItem={renderItem}
-                      // Optimizaciones extra para FlatList con muchos datos:
                       initialNumToRender={15}
                       maxToRenderPerBatch={10}
                       windowSize={5}
@@ -464,11 +457,32 @@ export default function ListaProductos() {
           )}
         </View>
       )}
+
+      {/* MODAL GESTIONAR MEDIDAS */}
       <Modal
         animationType="fade"
-        transparent={true} // Permite ver el fondo oscuro
+        transparent={true}
+        visible={modalMedidasVisible}
+        onRequestClose={() => setModalMedidasVisible(false)}
+      >
+        <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
+          <View
+            style={[
+              styles.modalVentana,
+              { maxWidth: 500 },
+              celular && styles.modalVentanaCelular,
+            ]}
+          >
+            <GestionarMedidas onClose={() => setModalMedidasVisible(false)} />
+          </View>
+        </BlurView>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)} // Permite cerrar con el botón "Atrás" de Android
+        onRequestClose={() => setModalVisible(false)}
       >
         <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
           <View
@@ -480,9 +494,9 @@ export default function ListaProductos() {
       </Modal>
       <Modal
         animationType="fade"
-        transparent={true} // Permite ver el fondo oscuro
+        transparent={true}
         visible={modalEdicionVisible}
-        onRequestClose={() => setModalEdicionVisible(false)} // Permite cerrar con el botón "Atrás" de Android
+        onRequestClose={() => setModalEdicionVisible(false)}
       >
         <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
           <View
@@ -506,10 +520,9 @@ export default function ListaProductos() {
         <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
           <View style={styles.tarjetaOpciones}>
             <Text style={styles.tituloOpciones}>
-              Opciones: {productoAEditar?.nombre_producto}
+              Opciones: {(productoAEditar as any)?.nombre_producto}
             </Text>
 
-            {/* BOTÓN EDITAR */}
             <Pressable
               style={styles.botonOpcion}
               onPress={() => {
@@ -520,7 +533,6 @@ export default function ListaProductos() {
               <Text style={styles.textoBotonOpcion}>Editar producto</Text>
             </Pressable>
 
-            {/* BOTÓN QR Y BARRAS */}
             <Pressable
               style={styles.botonOpcion}
               onPress={() => {
@@ -533,7 +545,6 @@ export default function ListaProductos() {
               </Text>
             </Pressable>
 
-            {/* BOTÓN ELIMINAR */}
             <Pressable
               style={[styles.botonOpcion, styles.botonOpcionEliminar]}
               onPress={() => {
@@ -544,7 +555,6 @@ export default function ListaProductos() {
               <Text style={styles.textoBotonEliminar}>Eliminar producto</Text>
             </Pressable>
 
-            {/* BOTÓN CANCELAR */}
             <Pressable
               style={styles.botonCancelarOpciones}
               onPress={() => setOpcionesVisible(false)}
@@ -556,9 +566,9 @@ export default function ListaProductos() {
       </Modal>
       <Modal
         animationType="fade"
-        transparent={true} // Permite ver el fondo oscuro
+        transparent={true}
         visible={modalCodigo}
-        onRequestClose={() => setModalCodigo(false)} // Permite cerrar con el botón "Atrás" de Android
+        onRequestClose={() => setModalCodigo(false)}
       >
         <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
           <View
@@ -575,9 +585,9 @@ export default function ListaProductos() {
       </Modal>
       <Modal
         animationType="fade"
-        transparent={true} // Permite ver el fondo oscuro
+        transparent={true}
         visible={modalElminar}
-        onRequestClose={() => setModalEliminar(false)} // Permite cerrar con el botón "Atrás" de Android
+        onRequestClose={() => setModalEliminar(false)}
       >
         <BlurView intensity={30} tint="dark" style={styles.modalFondo}>
           <View
@@ -601,6 +611,7 @@ export default function ListaProductos() {
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   contenedorTabla: {
     backgroundColor: "#ffffff",
@@ -609,7 +620,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    overflow: "hidden", // Fundamental para que las esquinas no se vuelvan cuadradas
+    overflow: "hidden",
   },
   modalFondo: {
     flex: 1,
@@ -619,15 +630,15 @@ const styles = StyleSheet.create({
   },
   modalVentana: {
     width: "100%",
-    maxWidth: 700, // Limita el ancho en la PC
-    maxHeight: "90%", // Evita que se salga de la pantalla si es muy largo
+    maxWidth: 700,
+    maxHeight: "90%",
     backgroundColor: "white",
     borderRadius: 12,
-    overflow: "hidden", // Para que el ScrollView interno no tape los bordes redondos
+    overflow: "hidden",
   },
   modalVentanaCelular: {
     maxHeight: "95%",
-    padding: 5, // Un poco menos de espacio desperdiciado en los bordes para el celu
+    padding: 5,
   },
   encabezadoRow: {
     flexDirection: "row",
@@ -673,7 +684,7 @@ const styles = StyleSheet.create({
   textoVerde: {
     fontSize: 13,
     fontWeight: "bold",
-    color: "#10b981", // Verde característico del margen
+    color: "#10b981",
   },
   badgeUbicacion: {
     backgroundColor: "#f1f5f9",
@@ -687,14 +698,14 @@ const styles = StyleSheet.create({
     color: "#64748b",
   },
   toolbar: {
-    flexDirection: "row", // Los pone uno al lado del otro
-    flexWrap: "wrap", // Si no entran en la pantalla del celular, los baja de renglón
-    gap: 10, // Espacio entre los botones (funciona perfecto en web y react native moderno)
-    marginBottom: 15, // Espacio para que no se peguen a la tabla
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 15,
     alignItems: "center",
   },
   botonToolbar: {
-    backgroundColor: "#e5e7eb", // Gris clarito por defecto
+    backgroundColor: "#e5e7eb",
     paddingHorizontal: 15,
     paddingVertical: 10,
     borderRadius: 8,
@@ -719,7 +730,7 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   botonOpcion: {
-    backgroundColor: "#f3f4f6", // Gris clarito
+    backgroundColor: "#f3f4f6",
     paddingVertical: 15,
     borderRadius: 10,
     marginBottom: 10,
@@ -731,12 +742,12 @@ const styles = StyleSheet.create({
     color: "#1f2937",
   },
   botonOpcionEliminar: {
-    backgroundColor: "#fee2e2", // Rojo muy clarito
+    backgroundColor: "#fee2e2",
   },
   textoBotonEliminar: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#dc2626", // Rojo fuerte
+    color: "#dc2626",
   },
   botonCancelarOpciones: {
     paddingVertical: 15,
