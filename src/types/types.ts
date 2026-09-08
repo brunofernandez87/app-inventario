@@ -47,8 +47,8 @@ export interface Medida {
   id_medida: number;
   id_empresa: number;
   nombre_tipo: string;
-  abrevacion: String;
-  permiter_decimales?: boolean;
+  abreviacion: String;
+  permite_decimales?: boolean;
 }
 
 export interface Usuario {

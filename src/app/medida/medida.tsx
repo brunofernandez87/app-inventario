@@ -1,168 +1,384 @@
-import { addMedida, deleteMedida, getMedidas } from "@/service/medida";
-import { OpcionPredefinida, TipoVenta } from "@/types/types";
-import React, { useEffect, useState } from "react";
+import { useEmpresa } from "@/context/empresaContext";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    Text,
-    TouchableOpacity,
-    View,
+  crearMedida,
+  editarMedida,
+  eliminarMedida,
+  getMedidas,
+} from "@/service/medida";
+import { Medida } from "@/types/types";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 
-const OPCIONES_PREDEFINIDAS: OpcionPredefinida[] = [
-  { nombre_tipo: "Kilo", abreviacion: "kg" },
-  { nombre_tipo: "Litro", abreviacion: "lts" },
-  { nombre_tipo: "Metro", abreviacion: "m" },
-  { nombre_tipo: "Gramo", abreviacion: "g" },
-  { nombre_tipo: "Centimetro", abreviacion: "cm" },
-  { nombre_tipo: "Unidad", abreviacion: "un" },
-];
-
-export default function MedidaScreen() {
-  const [medidas, setMedidas] = useState<TipoVenta[]>([]);
+export default function GestionarMedidas({ onClose }: { onClose: () => void }) {
+  const { empresa } = useEmpresa();
+  const [medidas, setMedidas] = useState<Medida[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [errorVisible, setErrorVisible] = useState("");
 
-  const ID_EMPRESA_ACTUAL = 1;
+  const [idEditando, setIdEditando] = useState<number | null>(null);
+  const [nombre, setNombre] = useState("");
+  const [abreviacion, setAbreviacion] = useState("");
+  const [permiteDecimales, setPermiteDecimales] = useState(false);
+
+  const cargarMedidas = useCallback(async () => {
+    if (!empresa) return;
+    setLoading(true);
+    const data = await getMedidas(empresa.id_empresa);
+    setMedidas(data);
+    setLoading(false);
+  }, [empresa]);
 
   useEffect(() => {
     cargarMedidas();
-  }, []);
+  }, [cargarMedidas]);
 
-  const cargarMedidas = async () => {
-    try {
-      setLoading(true);
-      const data = await getMedidas(ID_EMPRESA_ACTUAL);
-      setMedidas(data);
-    } catch (error) {
-      Alert.alert("Error", "No se pudieron cargar las medidas");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const manejarGuardado = async () => {
+    if (!empresa) return;
+    setErrorVisible("");
 
-  const handleAgregar = async (opcion: OpcionPredefinida) => {
-    const yaExiste = medidas.some(
-      (m) => m.nombre_tipo.toLowerCase() === opcion.nombre_tipo.toLowerCase(),
-    );
-    if (yaExiste) {
-      Alert.alert("Atención", "Esta medida ya está en la lista.");
-      setModalVisible(false);
+    if (nombre.trim() === "" || abreviacion.trim() === "") {
+      setErrorVisible("Por favor, completá el nombre y la abreviación.");
       return;
     }
 
-    try {
-      setModalVisible(false);
-      const nueva = await addMedida({
-        id_empresa: ID_EMPRESA_ACTUAL,
-        nombre_tipo: opcion.nombre_tipo,
-        abreviacion: opcion.abreviacion,
-      });
-      setMedidas([...medidas, nueva]);
-    } catch (error) {
-      Alert.alert("Error", "No se pudo agregar la medida");
+    setGuardando(true);
+    let resultado;
+
+    if (idEditando) {
+      resultado = await editarMedida(
+        idEditando,
+        empresa.id_empresa,
+        nombre,
+        abreviacion,
+        permiteDecimales,
+      );
+    } else {
+      resultado = await crearMedida(
+        empresa.id_empresa,
+        nombre,
+        abreviacion,
+        permiteDecimales,
+      );
+    }
+
+    if (resultado.exito) {
+      setNombre("");
+      setAbreviacion("");
+      setPermiteDecimales(false);
+      setIdEditando(null);
+      await cargarMedidas();
+    } else {
+      setErrorVisible(
+        resultado.msj || "Error desconocido al guardar en base de datos.",
+      );
+    }
+    setGuardando(false);
+  };
+
+  const prepararEdicion = (medida: Medida) => {
+    setErrorVisible("");
+    setIdEditando(medida.id_medida);
+    setNombre(medida.nombre_tipo);
+    setAbreviacion(medida.abreviacion || "");
+    setPermiteDecimales(Boolean(medida.permite_decimales));
+  };
+
+  const confirmarEliminar = (medida: Medida) => {
+    if (!empresa) return;
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(`¿Seguro que querés eliminar "${medida.nombre_tipo}"?`)
+      ) {
+        ejecutarEliminacion(medida.id_medida);
+      }
+    } else {
+      Alert.alert(
+        "Eliminar",
+        `¿Seguro que querés eliminar "${medida.nombre_tipo}"?`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Eliminar",
+            style: "destructive",
+            onPress: () => ejecutarEliminacion(medida.id_medida),
+          },
+        ],
+      );
     }
   };
 
-  const handleEliminar = (id: number) => {
-    Alert.alert("Confirmar", "¿Estás seguro de eliminar esta medida?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Eliminar",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteMedida(id);
-            setMedidas(medidas.filter((m) => m.id_medida !== id));
-          } catch (error) {
-            Alert.alert("Error", "No se pudo eliminar");
-          }
-        },
-      },
-    ]);
+  const ejecutarEliminacion = async (id: number) => {
+    if (!empresa) return;
+    setLoading(true);
+    const resultado = await eliminarMedida(id, empresa.id_empresa);
+    if (resultado.exito) {
+      await cargarMedidas();
+    } else {
+      setErrorVisible(
+        "No se puede eliminar. ¿Hay productos usándola? Detalle: " +
+          resultado.msj,
+      );
+    }
+    setLoading(false);
   };
 
-  const renderItem = ({ item }: { item: TipoVenta }) => (
-    <View className="flex-row items-center justify-between bg-white p-4 mb-2 rounded-lg border border-gray-200 shadow-sm">
-      <Text className="text-gray-800 text-lg font-semibold w-1/3">
-        {item.nombre_tipo}
-      </Text>
-      <Text className="text-gray-500 text-base flex-1 text-center bg-gray-100 rounded-md py-1 mx-2">
-        {item.abreviacion}
-      </Text>
-      <TouchableOpacity
-        onPress={() => handleEliminar(item.id_medida)}
-        className="p-2"
-      >
-        <Text className="text-red-500 text-lg font-bold">X</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
-    <View className="flex-1 bg-gray-50 p-4">
-      <View className="flex-row justify-between items-center mb-6">
-        <View>
-          <Text className="text-2xl font-bold text-gray-900">Medidas</Text>
-          <Text className="text-sm text-gray-500 mt-1">
-            Define cómo se miden los productos.
-          </Text>
-        </View>
-        <TouchableOpacity
-          className="bg-blue-600 px-4 py-3 rounded-lg shadow"
-          onPress={() => setModalVisible(true)}
-        >
-          <Text className="text-white font-bold text-base">+ Agregar</Text>
-        </TouchableOpacity>
+    <View style={styles.contenedor}>
+      <View style={styles.header}>
+        <Text style={styles.titulo}>Tipos de Venta</Text>
+        <Pressable onPress={onClose} style={styles.btnCerrar}>
+          <Text style={styles.txtCerrar}>✕</Text>
+        </Pressable>
       </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#2563eb" className="mt-10" />
-      ) : (
-        <FlatList
-          data={medidas}
-          keyExtractor={(item) => item.id_medida.toString()}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          ListEmptyComponent={
-            <Text className="text-center text-gray-500 mt-10 text-lg">
-              No hay medidas registradas.
-            </Text>
-          }
-        />
+      <Text style={styles.descripcion}>
+        Los tipos de venta definen cómo se mide un producto (por kilo, unidad,
+        metro, etc.) y se usan al crear productos y en el POS de ventas.
+      </Text>
+
+      <View style={styles.listaContenedor}>
+        {loading ? (
+          <ActivityIndicator
+            size="small"
+            color="#2563eb"
+            style={{ padding: 20 }}
+          />
+        ) : (
+          <FlatList
+            data={medidas}
+            keyExtractor={(item) => item.id_medida.toString()}
+            style={{ maxHeight: 300 }}
+            renderItem={({ item }) => (
+              <View style={styles.filaMedida}>
+                <View
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 8,
+                  }}
+                >
+                  <Text style={styles.txtNombre}>{item.nombre_tipo}</Text>
+
+                  {item.abreviacion ? (
+                    <View style={styles.badgeAbrev}>
+                      <Text style={styles.txtBadgeAbrev}>
+                        {item.abreviacion}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {item.permite_decimales ? (
+                    <Text style={styles.txtDecimalesBadge}>
+                      (Acepta decimales)
+                    </Text>
+                  ) : (
+                    <Text style={styles.txtNoDecimalesBadge}>
+                      (No acepta decimales)
+                    </Text>
+                  )}
+                </View>
+
+                <View style={styles.accionesRow}>
+                  <Pressable onPress={() => prepararEdicion(item)}>
+                    <Text style={styles.iconoEditar}>✏️</Text>
+                  </Pressable>
+                  <Pressable onPress={() => confirmarEliminar(item)}>
+                    <Text style={styles.iconoEliminar}>❌</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+            ListEmptyComponent={
+              <Text
+                style={{ textAlign: "center", padding: 20, color: "#94a3b8" }}
+              >
+                No hay medidas.
+              </Text>
+            }
+          />
+        )}
+      </View>
+
+      {errorVisible !== "" && (
+        <View style={styles.cajaError}>
+          <Text style={styles.txtError}>⚠️ Error: {errorVisible}</Text>
+        </View>
       )}
 
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-white rounded-t-3xl p-6 h-1/2">
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-bold text-gray-900">
-                Seleccionar Medida
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text className="text-red-500 font-bold text-lg">Cerrar</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={OPCIONES_PREDEFINIDAS}
-              keyExtractor={(item) => item.nombre_tipo}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  className="flex-row justify-between items-center bg-gray-50 p-4 mb-3 rounded-xl border border-gray-200 active:bg-blue-50"
-                  onPress={() => handleAgregar(item)}
-                >
-                  <Text className="text-lg font-semibold text-gray-800">
-                    {item.nombre_tipo}
-                  </Text>
-                  <Text className="text-gray-500">{item.abreviacion}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
+      <View style={styles.formularioAgregar}>
+        <View style={styles.inputsRow}>
+          <TextInput
+            style={[styles.input, { flex: 2 }]}
+            placeholder="Nombre (ej: Rollo)"
+            value={nombre}
+            onChangeText={setNombre}
+            editable={!guardando}
+          />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Abrev."
+            value={abreviacion}
+            onChangeText={setAbreviacion}
+            maxLength={5}
+            editable={!guardando}
+          />
+          <Pressable
+            style={[styles.btnAgregar, guardando && { opacity: 0.6 }]}
+            onPress={manejarGuardado}
+            disabled={guardando}
+          >
+            <Text style={styles.txtBtnAgregar}>
+              {guardando
+                ? "Guardando..."
+                : idEditando
+                  ? "Guardar"
+                  : "+ Agregar"}
+            </Text>
+          </Pressable>
         </View>
-      </Modal>
+
+        <View style={styles.switchRow}>
+          <Switch
+            value={permiteDecimales}
+            onValueChange={setPermiteDecimales}
+            trackColor={{ false: "#cbd5e1", true: "#93c5fd" }}
+            thumbColor={permiteDecimales ? "#2563eb" : "#f1f5f9"}
+            disabled={guardando}
+          />
+          <Text style={styles.txtSwitch}>
+            Permitir ventas con decimales (ej: 1.5)
+          </Text>
+        </View>
+
+        {idEditando && (
+          <Pressable
+            onPress={() => {
+              setIdEditando(null);
+              setNombre("");
+              setAbreviacion("");
+              setPermiteDecimales(false);
+              setErrorVisible("");
+            }}
+            style={{ marginTop: 10, alignItems: "center" }}
+          >
+            <Text
+              style={{ color: "#ef4444", fontWeight: "bold", fontSize: 13 }}
+            >
+              Cancelar Edición
+            </Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  contenedor: { padding: 24 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  titulo: { fontSize: 20, fontWeight: "bold", color: "#0f172a" },
+  btnCerrar: { padding: 5 },
+  txtCerrar: { fontSize: 18, color: "#64748b", fontWeight: "bold" },
+  descripcion: {
+    fontSize: 13,
+    color: "#64748b",
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+
+  listaContenedor: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 15,
+  },
+  filaMedida: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#fff",
+  },
+  txtNombre: { fontSize: 15, fontWeight: "600", color: "#1e293b" },
+  txtDecimalesBadge: { fontSize: 12, color: "#059669", fontWeight: "bold" },
+  txtNoDecimalesBadge: { fontSize: 12, color: "#ef4444", fontWeight: "bold" },
+  badgeAbrev: {
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  txtBadgeAbrev: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#475569",
+    fontFamily: Platform.OS === "web" ? "monospace" : undefined,
+  },
+  accionesRow: {
+    flexDirection: "row",
+    gap: 15,
+    alignItems: "center",
+    paddingLeft: 10,
+  },
+  iconoEditar: { fontSize: 18, color: "#3b82f6" },
+  iconoEliminar: { fontSize: 16, color: "#ef4444" },
+
+  cajaError: {
+    backgroundColor: "#fee2e2",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#fca5a5",
+  },
+  txtError: { color: "#b91c1c", fontWeight: "bold", fontSize: 13 },
+
+  formularioAgregar: { marginTop: 5 },
+  inputsRow: { flexDirection: "row", gap: 10 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: "#fff",
+  },
+  btnAgregar: {
+    backgroundColor: "#93c5fd",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 15,
+  },
+  txtBtnAgregar: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    gap: 8,
+  },
+  txtSwitch: { fontSize: 13, color: "#475569", fontWeight: "500" },
+});
