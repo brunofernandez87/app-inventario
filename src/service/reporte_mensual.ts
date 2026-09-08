@@ -46,47 +46,68 @@ export const obtenerListaPrecios = async (id_empresa: number) => {
   }
 };
 
-export const obtenerResumenMensual = async (id_empresa: number) => {
+export const obtenerResumenMensual = async (
+  id_empresa: number,
+  fechaInicioRango?: string,
+  fechaFinRango?: string,
+) => {
   try {
-    const fecha = new Date();
-    const primerDia = new Date(
-      fecha.getFullYear(),
-      fecha.getMonth(),
-      1,
-    ).toISOString();
-    const ultimoDia = new Date(
-      fecha.getFullYear(),
-      fecha.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-    ).toISOString();
-
-    const { data, error } = await supabase
-      .from("movimiento_stock")
-      .select(`cantidad, producto:id_producto ( precio_venta )`)
+    let query = supabase
+      .from("venta")
+      .select(
+        `
+        total,
+        estado,
+        detalle_venta (
+          cantidad,
+          producto ( costo_compra )
+        )
+      `,
+      )
       .eq("id_empresa", id_empresa)
-      .eq("tipo_movimiento", "SALIDA")
-      .ilike("motivo", "%Venta%")
-      .gte("fecha_movimiento", primerDia)
-      .lte("fecha_movimiento", ultimoDia);
+      .neq("estado", "Cancelado");
 
+    if (fechaInicioRango && fechaFinRango) {
+      query = query
+        .gte("fecha_venta", `${fechaInicioRango}T00:00:00`)
+        .lte("fecha_venta", `${fechaFinRango}T23:59:59`);
+    } else {
+      const fecha = new Date();
+      const primerDia = new Date(
+        fecha.getFullYear(),
+        fecha.getMonth(),
+        1,
+      ).toISOString();
+      const ultimoDia = new Date(
+        fecha.getFullYear(),
+        fecha.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+      ).toISOString();
+      query = query.gte("fecha_venta", primerDia).lte("fecha_venta", ultimoDia);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
 
     let transacciones = data?.length || 0;
     let unidadesVendidas = 0;
     let ingresosTotales = 0;
+    let costosTotales = 0;
 
-    data?.forEach((mov: any) => {
-      const cant = mov.cantidad || 0;
-      const precioVenta = mov.producto?.precio_venta || 0;
-      unidadesVendidas += cant;
-      ingresosTotales += cant * precioVenta;
+    data?.forEach((venta: any) => {
+      ingresosTotales += Number(venta.total) || 0;
+      venta.detalle_venta?.forEach((det: any) => {
+        const cant = Number(det.cantidad) || 0;
+        const costo = Number(det.producto?.costo_compra) || 0;
+        unidadesVendidas += cant;
+        costosTotales += cant * costo;
+      });
     });
 
-    const costosTotales = 0;
-    const gananciaNeta = ingresosTotales;
+    const gananciaNeta = ingresosTotales - costosTotales;
 
     return { transacciones, unidadesVendidas, costosTotales, gananciaNeta };
   } catch (error) {
@@ -118,55 +139,68 @@ export const obtenerHistorialGraficos = async (id_empresa: number) => {
     ];
     const fechaActual = new Date();
 
-    const labels = [];
-    const ganancias = [0, 0, 0, 0, 0, 0];
-    const transacciones = [0, 0, 0, 0, 0, 0];
-    const fechaInicio = new Date();
-    fechaInicio.setMonth(fechaInicio.getMonth() - 5);
-    fechaInicio.setDate(1);
+    const labels: string[] = [];
+    const ganancias = Array(12).fill(0);
+    const transacciones = Array(12).fill(0);
+    const ventasPorMes: Record<number, any[]> = {};
+
+    const fechaInicio = new Date(
+      fechaActual.getFullYear(),
+      fechaActual.getMonth() - 11,
+      1,
+    );
     fechaInicio.setHours(0, 0, 0, 0);
 
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(
+        fechaActual.getFullYear(),
+        fechaActual.getMonth() - i,
+        1,
+      );
       labels.push(mesesNombres[d.getMonth()]);
+      ventasPorMes[11 - i] = [];
     }
 
     const { data, error } = await supabase
-      .from("movimiento_stock")
+      .from("venta")
       .select(
-        `cantidad, fecha_movimiento, producto:id_producto ( precio_venta )`,
+        `id_venta, numero_ticket, total, fecha_venta, cliente, estado, usuario(nombre_usuario)`,
       )
       .eq("id_empresa", id_empresa)
-      .eq("tipo_movimiento", "SALIDA")
-      .ilike("motivo", "%Venta%")
-      .gte("fecha_movimiento", fechaInicio.toISOString());
+      .neq("estado", "Cancelado")
+      .gte("fecha_venta", fechaInicio.toISOString());
 
     if (error) throw error;
 
-    data?.forEach((mov: any) => {
-      const fechaMov = new Date(mov.fecha_movimiento);
+    data?.forEach((v: any) => {
+      const fechaMov = new Date(v.fecha_venta);
       const diffMeses =
         (fechaActual.getFullYear() - fechaMov.getFullYear()) * 12 +
         (fechaActual.getMonth() - fechaMov.getMonth());
 
-      if (diffMeses >= 0 && diffMeses < 6) {
-        const arrayIndex = 5 - diffMeses;
-        const cant = mov.cantidad || 0;
-        const precioVenta = mov.producto?.precio_venta || 0;
-
-        ganancias[arrayIndex] += cant * precioVenta;
+      if (diffMeses >= 0 && diffMeses < 12) {
+        const arrayIndex = 11 - diffMeses;
+        ganancias[arrayIndex] += Number(v.total) || 0;
         transacciones[arrayIndex] += 1;
+        ventasPorMes[arrayIndex].push(v);
       }
     });
 
-    return { labels, ganancias, transacciones };
+    for (let i = 0; i < 12; i++) {
+      ventasPorMes[i].sort(
+        (a, b) =>
+          new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime(),
+      );
+    }
+
+    return { labels, ganancias, transacciones, ventasPorMes };
   } catch (error) {
     console.error("Error al obtener historial gráficos:", error);
     return {
-      labels: ["-", "-", "-", "-", "-", "-"],
-      ganancias: [0, 0, 0, 0, 0, 0],
-      transacciones: [0, 0, 0, 0, 0, 0],
+      labels: Array(12).fill("-"),
+      ganancias: Array(12).fill(0),
+      transacciones: Array(12).fill(0),
+      ventasPorMes: {},
     };
   }
 };
@@ -194,24 +228,41 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
       if (promMensual > 0) {
         const meses = Math.round(stock / promMensual);
         mesesRestantes = `${meses} meses`;
-        estado = prod.alerta_proyeccion ? "Bajo" : "OK";
+
+        // 1 mes o menos es critico entre 1 y 3 meses es ok y mas de 3 es superavit
+        if (meses <= 1 || prod.alerta_proyeccion) {
+          estado = "Crítico";
+        } else if (meses <= 3) {
+          estado = "OK";
+        } else {
+          estado = "Superávit";
+        }
       }
 
-      proyecciones.push({
-        id: prod.id_producto,
-        nombre: prod.nombre_producto,
-        codigo: prod.codigo_alfanumerico || "S/C",
-        stock: stock,
-        prom:
-          promMensual > 0 ? `~${Math.round(promMensual)}/mes` : "Sin ventas",
-        meses: mesesRestantes,
-        estado: estado,
-      });
+      if (estado !== "Sin historial") {
+        proyecciones.push({
+          id: prod.id_producto,
+          nombre: prod.nombre_producto,
+          codigo: prod.codigo_alfanumerico || "S/C",
+          stock: stock,
+          prom:
+            promMensual > 0 ? `~${Math.round(promMensual)}/mes` : "Sin ventas",
+          meses: mesesRestantes,
+          estado: estado,
+        });
+      }
 
       const costo = Number(prod.costo_compra) || 0;
       const precio = Number(prod.precio_venta) || 0;
       const ganancia = precio - costo;
       const margen = costo > 0 ? Math.round((ganancia / costo) * 100) : 100;
+
+      let colorMargen = "ok";
+      if (margen < 15) {
+        colorMargen = "bajo";
+      } else if (margen >= 15 && margen <= 30) {
+        colorMargen = "medio";
+      }
 
       const valCosto = stock * costo;
       const valPrecio = stock * precio;
@@ -227,6 +278,7 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
         precio: precio,
         ganancia: ganancia,
         margen: `${margen}%`,
+        colorMargen: colorMargen,
         stock: stock,
         valCosto: valCosto,
       });

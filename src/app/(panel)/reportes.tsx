@@ -1,3 +1,4 @@
+import { useEmpresa } from "@/context/empresaContext";
 import {
   obtenerHistorialGraficos,
   obtenerProyeccionesYRentabilidad,
@@ -14,7 +15,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { BarChart, LineChart } from "react-native-chart-kit";
@@ -26,7 +29,13 @@ if (Platform.OS === "web") {
     if (
       textoError.includes("transform-origin") ||
       textoError.includes("transformOrigin") ||
-      textoError.includes("onPressIn")
+      textoError.includes("onPressIn") ||
+      textoError.includes("onResponderTerminate") ||
+      textoError.includes("onResponderRelease") ||
+      textoError.includes("onResponderMove") ||
+      textoError.includes("onStartShouldSetResponder") ||
+      textoError.includes("onResponderGrant") ||
+      textoError.includes("onResponderTerminationRequest")
     ) {
       return;
     }
@@ -37,6 +46,12 @@ if (Platform.OS === "web") {
 LogBox.ignoreLogs([
   "Invalid DOM property `transform-origin`",
   "Unknown event handler property `onPressIn`",
+  "Unknown event handler property `onResponderTerminate`",
+  "Unknown event handler property `onResponderRelease`",
+  "Unknown event handler property `onResponderMove`",
+  "Unknown event handler property `onStartShouldSetResponder`",
+  "Unknown event handler property `onResponderGrant`",
+  "Unknown event handler property `onResponderTerminationRequest`",
 ]);
 
 const tabs = ["Resumen Mensual", "Proyecciones", "Rentabilidad"];
@@ -61,8 +76,21 @@ const chartConfigLineas = {
 };
 
 export default function ReportesScreen() {
+  const { empresa } = useEmpresa();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+
   const [tabActiva, setTabActiva] = useState("Resumen Mensual");
   const [loading, setLoading] = useState(true);
+
+  const hoy = new Date();
+  const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const formatoYYYYMMDD = (d: Date) =>
+    `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+
+  const [fechaInicio, setFechaInicio] = useState(formatoYYYYMMDD(primerDia));
+  const [fechaFin, setFechaFin] = useState(formatoYYYYMMDD(hoy));
+  const [mesExpandido, setMesExpandido] = useState<number | null>(null);
 
   const [datosMensuales, setDatosMensuales] = useState({
     transacciones: 0,
@@ -70,10 +98,11 @@ export default function ReportesScreen() {
     costosTotales: 0,
     gananciaNeta: 0,
   });
-  const [historialGraficos, setHistorialGraficos] = useState({
-    labels: ["-"],
-    ganancias: [0],
-    transacciones: [0],
+  const [historialGraficos, setHistorialGraficos] = useState<any>({
+    labels: Array(12).fill("-"),
+    ganancias: Array(12).fill(0),
+    transacciones: Array(12).fill(0),
+    ventasPorMes: {},
   });
 
   const [proyecciones, setProyecciones] = useState<any[]>([]);
@@ -84,29 +113,78 @@ export default function ReportesScreen() {
     gananciaPotencial: 0,
   });
 
-  const ID_EMPRESA_ACTUAL = 1;
+  const dateToWeb = (str: string) => {
+    const p = str.split("/");
+    if (p.length === 3) return `${p[2]}-${p[1]}-${p[0]}`;
+    return str;
+  };
+  const webToDate = (str: string) => {
+    const p = str.split("-");
+    if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+    return str;
+  };
+  const manejarCambioFecha = (
+    texto: string,
+    setFecha: (val: string) => void,
+  ) => {
+    const soloNumeros = texto.replace(/[^0-9]/g, "");
+    let formateado = soloNumeros;
+    if (soloNumeros.length > 2)
+      formateado = soloNumeros.slice(0, 2) + "/" + soloNumeros.slice(2);
+    if (soloNumeros.length > 4)
+      formateado =
+        soloNumeros.slice(0, 2) +
+        "/" +
+        soloNumeros.slice(2, 4) +
+        "/" +
+        soloNumeros.slice(4, 8);
+    setFecha(formateado);
+  };
+
+  const cargarDatos = async (usarFiltroPersonalizado = false) => {
+    if (!empresa) return;
+    setLoading(true);
+
+    let fInicio = undefined;
+    let fFin = undefined;
+
+    if (usarFiltroPersonalizado) {
+      fInicio = Platform.OS === "web" ? fechaInicio : dateToWeb(fechaInicio);
+      fFin = Platform.OS === "web" ? fechaFin : dateToWeb(fechaFin);
+    }
+
+    const [resumen, historial, extraData] = await Promise.all([
+      obtenerResumenMensual(empresa.id_empresa, fInicio, fFin),
+      obtenerHistorialGraficos(empresa.id_empresa),
+      obtenerProyeccionesYRentabilidad(empresa.id_empresa),
+    ]);
+
+    setDatosMensuales(resumen);
+    setHistorialGraficos(historial);
+    setProyecciones(extraData.proyecciones);
+    setRentabilidad(extraData.rentabilidad);
+    setResumenRentabilidad(extraData.resumenRentabilidad);
+    setLoading(false);
+  };
 
   useFocusEffect(
     useCallback(() => {
-      const cargarReportes = async () => {
-        setLoading(true);
-        const [resumen, historial, extraData] = await Promise.all([
-          obtenerResumenMensual(ID_EMPRESA_ACTUAL),
-          obtenerHistorialGraficos(ID_EMPRESA_ACTUAL),
-          obtenerProyeccionesYRentabilidad(ID_EMPRESA_ACTUAL),
-        ]);
-
-        setDatosMensuales(resumen);
-        setHistorialGraficos(historial);
-        setProyecciones(extraData.proyecciones);
-        setRentabilidad(extraData.rentabilidad);
-        setResumenRentabilidad(extraData.resumenRentabilidad);
-
-        setLoading(false);
-      };
-      cargarReportes();
-    }, []),
+      cargarDatos(false);
+    }, [empresa]),
   );
+
+  const getBadgeStyle = (estado: string) => {
+    if (estado === "OK") return styles.badgeOk;
+    if (estado === "Crítico") return styles.badgeBajo;
+    if (estado === "Superávit") return styles.badgeSuperavit;
+    return styles.badgeSinHistorial;
+  };
+  const getBadgeTxtStyle = (estado: string) => {
+    if (estado === "OK") return styles.badgeTxtOk;
+    if (estado === "Crítico") return styles.badgeTxtBajo;
+    if (estado === "Superávit") return styles.badgeTxtSuperavit;
+    return styles.badgeTxtSinHistorial;
+  };
 
   const generarPDF = async () => {
     try {
@@ -123,7 +201,6 @@ export default function ReportesScreen() {
               h1 { color: #0f172a; text-align: left; margin-bottom: 5px; font-size: 24px; }
               .fecha { text-align: left; color: #64748b; font-size: 13px; margin-bottom: 30px; }
               
-              /* Cajas de resumen superior (Solo para mensual y rentabilidad) */
               .summary-container { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 30px; }
               .summary-box { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; flex: 1; text-align: left; }
               .summary-box-green { background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 15px; border-radius: 8px; flex: 1; text-align: left; }
@@ -131,17 +208,17 @@ export default function ReportesScreen() {
               .summary-box p { margin: 8px 0 0 0; font-size: 20px; font-weight: bold; color: #0f172a; }
               .summary-box-green p { margin: 8px 0 0 0; font-size: 20px; font-weight: bold; color: #16a34a; }
               
-              /* Tablas clásicas perfectas */
               table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; border: 1px solid #cbd5e1; }
               th, td { border: 1px solid #cbd5e1; padding: 12px 10px; text-align: left; }
               th { background-color: #ffffff; color: #64748b; font-weight: bold; text-transform: uppercase; font-size: 11px; }
               tr:nth-child(even) { background-color: #f8fafc; }
               .val-green { color: #16a34a; font-weight: bold; }
               
-              /* Badges (Etiquetas de color) */
               .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; display: inline-block; }
               .ok { background-color: #d1fae5; color: #047857; }
-              .bajo { background-color: #fef3c7; color: #b45309; }
+              .bajo { background-color: #fee2e2; color: #b91c1c; }
+              .medio { background-color: #fef3c7; color: #b45309; }
+              .superavit { background-color: #dbeafe; color: #1e40af; }
               .sin { background-color: #f1f5f9; color: #94a3b8; }
             </style>
           </head>
@@ -150,42 +227,41 @@ export default function ReportesScreen() {
       `;
 
       if (tabActiva === "Resumen Mensual") {
-        const labelsInvertidos = [...historialGraficos.labels].reverse();
-        const transaccionesInvertidas = [
-          ...historialGraficos.transacciones,
-        ].reverse();
-        const gananciasInvertidas = [...historialGraficos.ganancias].reverse();
-
         htmlContent += `
             <h1>Reporte de Resumen Mensual</h1>
             <div class="summary-container">
               <div class="summary-box"><h3>Ventas del Mes</h3><p>${datosMensuales.transacciones}</p></div>
               <div class="summary-box"><h3>Prod. Vendidos</h3><p>${datosMensuales.unidadesVendidas}</p></div>
-              <div class="summary-box"><h3>Costos Totales</h3><p>$ ${datosMensuales.costosTotales.toLocaleString("es-AR")}</p></div>
-              <div class="summary-box"><h3>Ganancia Neta</h3><p>$ ${datosMensuales.gananciaNeta.toLocaleString("es-AR")}</p></div>
+              <div class="summary-box"><h3>Costos Totales</h3><p>$ ${Number(datosMensuales.costosTotales).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>
+              <div class="summary-box"><h3>Ganancia Neta</h3><p>$ ${Number(datosMensuales.gananciaNeta).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>
             </div>
-            <h2 style="color: #0f172a; margin-top: 30px; font-size: 18px; text-align:left;">Desglose Mes a Mes</h2>
+            <h2 style="color: #0f172a; margin-top: 30px; font-size: 18px; text-align:left;">Desglose Histórico (12 Meses)</h2>
             <table>
               <thead>
                 <tr>
                   <th>Mes</th>
-                  <th style="text-align: center;">Transacciones</th>
+                  <th style="text-align: center;">Ventas Creadas</th>
                   <th style="text-align: right;">Ingresos Totales</th>
                 </tr>
               </thead>
               <tbody>
         `;
 
-        labelsInvertidos.forEach((mes, index) => {
-          const transacciones = transaccionesInvertidas[index];
-          const ganancias = gananciasInvertidas[index];
-          htmlContent += `
-            <tr>
-              <td><strong>${mes} ${index === 0 ? "(Actual)" : ""}</strong></td>
-              <td style="text-align: center;">${transacciones} ventas</td>
-              <td style="text-align: right;" class="val-green">$ ${ganancias.toLocaleString("es-AR")}</td>
-            </tr>
-          `;
+        Array.from({ length: 12 }).forEach((_, i) => {
+          const indexReal = 11 - i;
+          const mes = historialGraficos.labels[indexReal];
+          const transacciones = historialGraficos.transacciones[indexReal];
+          const ganancias = historialGraficos.ganancias[indexReal];
+
+          if (mes !== "-") {
+            htmlContent += `
+              <tr>
+                <td><strong>${mes} ${indexReal === 11 ? "(Actual)" : ""}</strong></td>
+                <td style="text-align: center;">${transacciones} tickets</td>
+                <td style="text-align: right;" class="val-green">$ ${Number(ganancias).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            `;
+          }
         });
         htmlContent += `</tbody></table>`;
       } else if (tabActiva === "Proyecciones") {
@@ -207,9 +283,11 @@ export default function ReportesScreen() {
           const claseEstado =
             prod.estado === "OK"
               ? "ok"
-              : prod.estado === "Bajo"
+              : prod.estado === "Crítico"
                 ? "bajo"
-                : "sin";
+                : prod.estado === "Superávit"
+                  ? "superavit"
+                  : "sin";
           htmlContent += `
             <tr>
               <td><strong>${prod.nombre}</strong><br><span style="color:#64748b; font-size:11px;">${prod.codigo}</span></td>
@@ -242,12 +320,12 @@ export default function ReportesScreen() {
           htmlContent += `
             <tr>
               <td><strong>${prod.nombre}</strong><br><span style="color:#64748b; font-size:11px;">${prod.codigoMarca}</span></td>
-              <td style="text-align:center;">$ ${prod.costo.toLocaleString("es-AR")}</td>
-              <td style="text-align:center;">$ ${prod.precio.toLocaleString("es-AR")}</td>
-              <td style="text-align:center;" class="val-green">$ ${prod.ganancia.toLocaleString("es-AR")}</td>
-              <td style="text-align:center;"><span class="badge ok">${prod.margen}</span></td>
+              <td style="text-align:center;">$ ${Number(prod.costo).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td style="text-align:center;">$ ${Number(prod.precio).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td style="text-align:center;" class="val-green">+ $ ${Number(prod.ganancia).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td style="text-align:center;"><span class="badge ${prod.colorMargen}">${prod.margen}</span></td>
               <td style="text-align:center;"><strong>${prod.stock}</strong> uds.</td>
-              <td style="text-align:right; font-weight:bold;">$ ${prod.valCosto.toLocaleString("es-AR")}</td>
+              <td style="text-align:right; font-weight:bold;">$ ${Number(prod.valCosto).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             </tr>
           `;
         });
@@ -289,7 +367,7 @@ export default function ReportesScreen() {
           data:
             historialGraficos.ganancias.length > 0
               ? historialGraficos.ganancias
-              : [0],
+              : Array(12).fill(0),
         },
       ],
     };
@@ -301,21 +379,102 @@ export default function ReportesScreen() {
           data:
             historialGraficos.transacciones.length > 0
               ? historialGraficos.transacciones
-              : [0],
+              : Array(12).fill(0),
         },
       ],
     };
 
-    const anchoGrafico = Platform.OS === "web" ? 400 : 320;
-    const labelsInvertidos = [...historialGraficos.labels].reverse();
-    const transaccionesInvertidas = [
-      ...historialGraficos.transacciones,
-    ].reverse();
-    const gananciasInvertidas = [...historialGraficos.ganancias].reverse();
     const isWeb = Platform.OS === "web";
+    const anchoGrafico = 700;
 
     return (
       <View style={styles.tabContent}>
+        <View style={styles.filterWrapper}>
+          <Text style={styles.filterTitle}>Filtrar Resumen General</Text>
+          <View style={{ flexDirection: isMobile ? "column" : "row", gap: 16 }}>
+            <View style={isMobile ? { width: "100%" } : { flex: 1 }}>
+              <Text style={styles.labelInput}>Fecha Inicio</Text>
+              {Platform.OS === "web" ? (
+                <input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  style={
+                    {
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "15px",
+                      color: "#334155",
+                      fontFamily: "inherit",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      minHeight: "44px",
+                    } as any
+                  }
+                />
+              ) : (
+                <TextInput
+                  style={styles.modalInputText}
+                  placeholder="DD/MM/YYYY"
+                  value={fechaInicio}
+                  onChangeText={(t) => manejarCambioFecha(t, setFechaInicio)}
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+              )}
+            </View>
+            <View style={isMobile ? { width: "100%" } : { flex: 1 }}>
+              <Text style={styles.labelInput}>Fecha Fin</Text>
+              {Platform.OS === "web" ? (
+                <input
+                  type="date"
+                  value={fechaFin}
+                  onChange={(e) => setFechaFin(e.target.value)}
+                  style={
+                    {
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "15px",
+                      color: "#334155",
+                      fontFamily: "inherit",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      minHeight: "44px",
+                    } as any
+                  }
+                />
+              ) : (
+                <TextInput
+                  style={styles.modalInputText}
+                  placeholder="DD/MM/YYYY"
+                  value={fechaFin}
+                  onChangeText={(t) => manejarCambioFecha(t, setFechaFin)}
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+              )}
+            </View>
+            <View
+              style={
+                isMobile
+                  ? { width: "100%", marginTop: 8 }
+                  : { flex: 0.5, justifyContent: "flex-end" }
+              }
+            >
+              <TouchableOpacity
+                style={styles.btnFiltrar}
+                onPress={() => cargarDatos(true)}
+              >
+                <Text style={styles.txtFiltrar}>Aplicar Filtro</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
         <View
           style={{
             flexDirection: "row",
@@ -325,9 +484,9 @@ export default function ReportesScreen() {
           }}
         >
           <CardIndicador
-            titulo="VENTAS DEL MES"
+            titulo="VENTAS DEL PERÍODO"
             valor={datosMensuales.transacciones.toString()}
-            subtitulo="transacciones"
+            subtitulo="tickets creados"
           />
           <CardIndicador
             titulo="PRODUCTOS VENDIDOS"
@@ -336,166 +495,250 @@ export default function ReportesScreen() {
           />
           <CardIndicador
             titulo="COSTOS TOTALES"
-            valor={`$ ${datosMensuales.costosTotales.toLocaleString("es-AR")}`}
+            valor={`$ ${Number(datosMensuales.costosTotales).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             subtitulo="costo mercadería"
           />
           <CardIndicador
             titulo="GANANCIA NETA"
-            valor={`$ ${datosMensuales.gananciaNeta.toLocaleString("es-AR")}`}
+            valor={`$ ${Number(datosMensuales.gananciaNeta).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             subtitulo="ingresos - costos"
           />
         </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            gap: 16,
-            marginBottom: 20,
-          }}
+        <Text style={[styles.cardTituloGrafico, { marginLeft: 5 }]}>
+          Histórico Anual (Últimos 12 meses)
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginBottom: 20 }}
         >
-          <View
-            style={[
-              styles.card,
-              { flex: 1, minWidth: anchoGrafico + 40, alignItems: "center" },
-            ]}
-          >
-            <Text style={styles.cardTituloGrafico}>
-              Ganancia Neta (Últimos 6 meses)
-            </Text>
-            <BarChart
-              data={dataGanancias}
-              width={anchoGrafico}
-              height={220}
-              yAxisLabel="$"
-              yAxisSuffix=""
-              chartConfig={chartConfigBarras}
-              fromZero={true}
-              style={{ borderRadius: 12, marginTop: 10 }}
-            />
+          <View style={{ flexDirection: "row", gap: 16, paddingBottom: 10 }}>
+            <View
+              style={[
+                styles.card,
+                { width: anchoGrafico + 40, alignItems: "center" },
+              ]}
+            >
+              <Text style={styles.cardTituloGrafico}>Ingresos Brutos ($)</Text>
+              <BarChart
+                data={dataGanancias}
+                width={anchoGrafico}
+                height={220}
+                yAxisLabel="$"
+                yAxisSuffix=""
+                chartConfig={chartConfigBarras}
+                fromZero={true}
+                style={{ borderRadius: 12, marginTop: 10 }}
+              />
+            </View>
+            <View
+              style={[
+                styles.card,
+                { width: anchoGrafico + 40, alignItems: "center" },
+              ]}
+            >
+              <Text style={styles.cardTituloGrafico}>Tickets de Venta</Text>
+              <LineChart
+                data={dataVentas}
+                width={anchoGrafico}
+                height={220}
+                yAxisLabel=""
+                yAxisSuffix=" vtas"
+                chartConfig={chartConfigLineas}
+                bezier
+                fromZero={true}
+                withDots={!isMobile}
+                style={{ borderRadius: 12, marginTop: 10 }}
+              />
+            </View>
           </View>
-          <View
-            style={[
-              styles.card,
-              { flex: 1, minWidth: anchoGrafico + 40, alignItems: "center" },
-            ]}
-          >
-            <Text style={styles.cardTituloGrafico}>Transacciones de Venta</Text>
-            <LineChart
-              data={dataVentas}
-              width={anchoGrafico}
-              height={220}
-              yAxisLabel=""
-              yAxisSuffix=" vtas"
-              chartConfig={chartConfigLineas}
-              bezier
-              fromZero={true}
-              withDots={!isWeb}
-              style={{ borderRadius: 12, marginTop: 10 }}
-            />
-          </View>
-        </View>
+        </ScrollView>
 
         <View style={[styles.tableCard, { marginTop: 10 }]}>
           <View style={styles.tableCardHeader}>
             <Text style={styles.tableCardTitle}>Desglose Mes a Mes</Text>
             <Text style={styles.tableCardSub}>
-              Historial numérico de los últimos 6 meses
+              Toca un mes para ver las ventas (Tickets)
             </Text>
           </View>
           <View style={{ paddingTop: 10 }}>
-            {labelsInvertidos.map((mes, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.cardMobile,
-                  isWeb && {
-                    flexDirection: "row",
-                    alignItems: "center",
-                    paddingVertical: 14,
-                  },
-                ]}
-              >
-                {isWeb ? (
-                  <>
-                    <View style={{ flex: 1, paddingRight: 10 }}>
-                      <Text
-                        style={[
-                          styles.rowTxtBase,
-                          { fontWeight: "bold", fontSize: 16 },
-                        ]}
-                      >
-                        {mes} {index === 0 && "(Actual)"}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1, alignItems: "center" }}>
-                      <Text style={styles.rowTxtBase}>
-                        Transacciones:{" "}
-                        <Text style={{ fontWeight: "bold" }}>
-                          {transaccionesInvertidas[index]}
+            {Array.from({ length: 12 }).map((_, i) => {
+              const indexReal = 11 - i;
+              const mes = historialGraficos.labels[indexReal];
+              const transacciones = historialGraficos.transacciones[indexReal];
+              const ganancias = historialGraficos.ganancias[indexReal];
+              const ventasMes = historialGraficos.ventasPorMes[indexReal] || [];
+              const estaExpandido = mesExpandido === indexReal;
+
+              if (mes === "-") return null;
+
+              return (
+                <View key={indexReal} style={{ marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.cardMobile,
+                      isWeb && {
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 14,
+                      },
+                      { marginBottom: 0 },
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      setMesExpandido(estaExpandido ? null : indexReal)
+                    }
+                  >
+                    {isWeb ? (
+                      <>
+                        <View style={{ flex: 1, paddingRight: 10 }}>
+                          <Text
+                            style={[
+                              styles.rowTxtBase,
+                              { fontWeight: "bold", fontSize: 16 },
+                            ]}
+                          >
+                            {mes} {indexReal === 11 && "(Actual)"}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1, alignItems: "center" }}>
+                          <Text style={styles.rowTxtBase}>
+                            Tickets:{" "}
+                            <Text style={{ fontWeight: "bold" }}>
+                              {transacciones}
+                            </Text>
+                          </Text>
+                        </View>
+                        <View
+                          style={{
+                            flex: 1,
+                            alignItems: "flex-end",
+                            paddingLeft: 10,
+                            flexDirection: "row",
+                            justifyContent: "flex-end",
+                            gap: 15,
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.rowTxtBase,
+                              {
+                                color: "#16a34a",
+                                fontWeight: "bold",
+                                fontSize: 16,
+                              },
+                            ]}
+                          >
+                            Ingresos: ${" "}
+                            {Number(ganancias).toLocaleString("es-AR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </Text>
+                          <Text style={{ fontSize: 16, color: "#94a3b8" }}>
+                            {estaExpandido ? "▲" : "▼"}
+                          </Text>
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <View style={styles.cardRowMobile}>
+                          <Text
+                            style={[
+                              styles.rowTxtBase,
+                              { fontWeight: "bold", fontSize: 16 },
+                            ]}
+                          >
+                            {mes} {indexReal === 11 && "(Actual)"}
+                          </Text>
+                          <Text style={{ fontSize: 16, color: "#94a3b8" }}>
+                            {estaExpandido ? "▲" : "▼"}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.cardRowMobile,
+                            { marginTop: 4, marginBottom: 0 },
+                          ]}
+                        >
+                          <Text style={styles.rowTxtSub}>
+                            {transacciones} tickets de venta
+                          </Text>
+                          <Text
+                            style={[
+                              styles.rowTxtBase,
+                              {
+                                color: "#16a34a",
+                                fontWeight: "bold",
+                                fontSize: 16,
+                              },
+                            ]}
+                          >
+                            ${" "}
+                            {Number(ganancias).toLocaleString("es-AR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* ACORDEON CON LOS TICKETS DEL MES */}
+                  {estaExpandido && (
+                    <View style={styles.accordionContent}>
+                      {ventasMes.length === 0 ? (
+                        <Text
+                          style={{
+                            color: "#94a3b8",
+                            fontStyle: "italic",
+                            textAlign: "center",
+                            padding: 10,
+                          }}
+                        >
+                          Sin ventas registradas en este mes.
                         </Text>
-                      </Text>
+                      ) : (
+                        ventasMes.map((venta: any) => {
+                          const d = new Date(venta.fecha_venta);
+                          const fechaCorta = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+                          return (
+                            <View key={venta.id_venta} style={styles.ticketRow}>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.ticketTitle}>
+                                  Ticket #
+                                  {venta.numero_ticket || venta.id_venta}
+                                </Text>
+                                <Text style={styles.ticketSub}>
+                                  {fechaCorta} -{" "}
+                                  {venta.cliente || "Consumidor Final"}
+                                </Text>
+                              </View>
+                              <View style={{ alignItems: "flex-end" }}>
+                                <Text style={styles.ticketTotal}>
+                                  ${" "}
+                                  {Number(venta.total).toLocaleString("es-AR", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </Text>
+                                <Text style={styles.ticketVendedor}>
+                                  Por:{" "}
+                                  {venta.usuario?.nombre_usuario ||
+                                    "Desconocido"}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })
+                      )}
                     </View>
-                    <View
-                      style={{
-                        flex: 1,
-                        alignItems: "flex-end",
-                        paddingLeft: 10,
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.rowTxtBase,
-                          {
-                            color: "#16a34a",
-                            fontWeight: "bold",
-                            fontSize: 16,
-                          },
-                        ]}
-                      >
-                        Ingresos: ${" "}
-                        {gananciasInvertidas[index].toLocaleString("es-AR")}
-                      </Text>
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.cardRowMobile}>
-                      <Text
-                        style={[
-                          styles.rowTxtBase,
-                          { fontWeight: "bold", fontSize: 16 },
-                        ]}
-                      >
-                        {mes} {index === 0 && "(Actual)"}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.rowTxtBase,
-                          {
-                            color: "#16a34a",
-                            fontWeight: "bold",
-                            fontSize: 16,
-                          },
-                        ]}
-                      >
-                        $ {gananciasInvertidas[index].toLocaleString("es-AR")}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.cardRowMobile,
-                        { marginTop: 4, marginBottom: 0 },
-                      ]}
-                    >
-                      <Text style={styles.rowTxtSub}>
-                        {transaccionesInvertidas[index]} transacciones
-                      </Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            ))}
+                  )}
+                </View>
+              );
+            })}
           </View>
         </View>
       </View>
@@ -509,10 +752,6 @@ export default function ReportesScreen() {
         <View style={styles.tableCard}>
           <View style={styles.tableCardHeader}>
             <Text style={styles.tableCardTitle}>Proyección por Producto</Text>
-            <Text style={styles.tableCardSub}>
-              Calculado en base al promedio histórico de ventas de los últimos 6
-              meses
-            </Text>
           </View>
 
           <View style={{ paddingTop: 10, width: "100%" }}>
@@ -520,7 +759,7 @@ export default function ReportesScreen() {
               <Text
                 style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}
               >
-                No hay productos registrados.
+                No hay productos registrados con ventas.
               </Text>
             ) : (
               proyecciones.map((prod) => (
@@ -574,24 +813,8 @@ export default function ReportesScreen() {
                         </Text>
                       </View>
                       <View style={{ flex: 0.8, alignItems: "flex-end" }}>
-                        <View
-                          style={
-                            prod.estado === "OK"
-                              ? styles.badgeOk
-                              : prod.estado === "Bajo"
-                                ? styles.badgeBajo
-                                : styles.badgeSinHistorial
-                          }
-                        >
-                          <Text
-                            style={
-                              prod.estado === "OK"
-                                ? styles.badgeTxtOk
-                                : prod.estado === "Bajo"
-                                  ? styles.badgeTxtBajo
-                                  : styles.badgeTxtSinHistorial
-                            }
-                          >
+                        <View style={getBadgeStyle(prod.estado)}>
+                          <Text style={getBadgeTxtStyle(prod.estado)}>
                             {prod.estado}
                           </Text>
                         </View>
@@ -614,24 +837,8 @@ export default function ReportesScreen() {
                         >
                           {prod.nombre}
                         </Text>
-                        <View
-                          style={
-                            prod.estado === "OK"
-                              ? styles.badgeOk
-                              : prod.estado === "Bajo"
-                                ? styles.badgeBajo
-                                : styles.badgeSinHistorial
-                          }
-                        >
-                          <Text
-                            style={
-                              prod.estado === "OK"
-                                ? styles.badgeTxtOk
-                                : prod.estado === "Bajo"
-                                  ? styles.badgeTxtBajo
-                                  : styles.badgeTxtSinHistorial
-                            }
-                          >
+                        <View style={getBadgeStyle(prod.estado)}>
+                          <Text style={getBadgeTxtStyle(prod.estado)}>
                             {prod.estado}
                           </Text>
                         </View>
@@ -692,13 +899,21 @@ export default function ReportesScreen() {
           <View style={[styles.card, { flex: 1, minWidth: 200 }]}>
             <Text style={styles.cardTitulo}>VALOR STOCK A COSTO</Text>
             <Text style={styles.cardValor}>
-              $ {resumenRentabilidad.totalCosto.toLocaleString("es-AR")}
+              ${" "}
+              {Number(resumenRentabilidad.totalCosto).toLocaleString("es-AR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </Text>
           </View>
           <View style={[styles.card, { flex: 1, minWidth: 200 }]}>
             <Text style={styles.cardTitulo}>VALOR STOCK A PRECIO VENTA</Text>
             <Text style={styles.cardValor}>
-              $ {resumenRentabilidad.totalPrecio.toLocaleString("es-AR")}
+              ${" "}
+              {Number(resumenRentabilidad.totalPrecio).toLocaleString("es-AR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </Text>
           </View>
           <View style={[styles.cardPotencial, { flex: 1, minWidth: 200 }]}>
@@ -706,7 +921,11 @@ export default function ReportesScreen() {
               GANANCIA POTENCIAL EN STOCK
             </Text>
             <Text style={[styles.cardValor, { color: "#16a34a" }]}>
-              $ {resumenRentabilidad.gananciaPotencial.toLocaleString("es-AR")}
+              ${" "}
+              {Number(resumenRentabilidad.gananciaPotencial).toLocaleString(
+                "es-AR",
+                { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+              )}
             </Text>
           </View>
         </View>
@@ -767,7 +986,11 @@ export default function ReportesScreen() {
                         <Text
                           style={[styles.rowTxtBase, { fontWeight: "bold" }]}
                         >
-                          $ {prod.costo.toLocaleString("es-AR")}
+                          ${" "}
+                          {Number(prod.costo).toLocaleString("es-AR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </Text>
                       </View>
                       <View
@@ -781,7 +1004,11 @@ export default function ReportesScreen() {
                         <Text
                           style={[styles.rowTxtBase, { fontWeight: "bold" }]}
                         >
-                          $ {prod.precio.toLocaleString("es-AR")}
+                          ${" "}
+                          {Number(prod.precio).toLocaleString("es-AR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </Text>
                       </View>
                       <View
@@ -798,7 +1025,11 @@ export default function ReportesScreen() {
                             { fontWeight: "bold", color: "#16a34a" },
                           ]}
                         >
-                          + $ {prod.ganancia.toLocaleString("es-AR")}
+                          + ${" "}
+                          {Number(prod.ganancia).toLocaleString("es-AR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </Text>
                       </View>
                       <View
@@ -808,8 +1039,26 @@ export default function ReportesScreen() {
                           justifyContent: "center",
                         }}
                       >
-                        <View style={styles.badgeOk}>
-                          <Text style={styles.badgeTxtOk}>{prod.margen}</Text>
+                        <View
+                          style={
+                            prod.colorMargen === "ok"
+                              ? styles.badgeOk
+                              : prod.colorMargen === "bajo"
+                                ? styles.badgeBajo
+                                : styles.badgeMedio
+                          }
+                        >
+                          <Text
+                            style={
+                              prod.colorMargen === "ok"
+                                ? styles.badgeTxtOk
+                                : prod.colorMargen === "bajo"
+                                  ? styles.badgeTxtBajo
+                                  : styles.badgeTxtMedio
+                            }
+                          >
+                            {prod.margen}
+                          </Text>
                         </View>
                       </View>
                       <View
@@ -837,7 +1086,11 @@ export default function ReportesScreen() {
                         <Text
                           style={[styles.rowTxtBase, { fontWeight: "bold" }]}
                         >
-                          $ {prod.valCosto.toLocaleString("es-AR")}
+                          ${" "}
+                          {Number(prod.valCosto).toLocaleString("es-AR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </Text>
                       </View>
                     </>
@@ -858,8 +1111,26 @@ export default function ReportesScreen() {
                         >
                           {prod.nombre}
                         </Text>
-                        <View style={styles.badgeOk}>
-                          <Text style={styles.badgeTxtOk}>{prod.margen}</Text>
+                        <View
+                          style={
+                            prod.colorMargen === "ok"
+                              ? styles.badgeOk
+                              : prod.colorMargen === "bajo"
+                                ? styles.badgeBajo
+                                : styles.badgeMedio
+                          }
+                        >
+                          <Text
+                            style={
+                              prod.colorMargen === "ok"
+                                ? styles.badgeTxtOk
+                                : prod.colorMargen === "bajo"
+                                  ? styles.badgeTxtBajo
+                                  : styles.badgeTxtMedio
+                            }
+                          >
+                            {prod.margen}
+                          </Text>
                         </View>
                       </View>
                       <Text style={[styles.rowTxtSub, { marginBottom: 12 }]}>
@@ -870,13 +1141,21 @@ export default function ReportesScreen() {
                         <Text style={styles.rowTxtBase}>
                           Costo:{" "}
                           <Text style={{ fontWeight: "bold" }}>
-                            $ {prod.costo.toLocaleString("es-AR")}
+                            ${" "}
+                            {Number(prod.costo).toLocaleString("es-AR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </Text>
                         </Text>
                         <Text style={styles.rowTxtBase}>
                           Precio:{" "}
                           <Text style={{ fontWeight: "bold" }}>
-                            $ {prod.precio.toLocaleString("es-AR")}
+                            ${" "}
+                            {Number(prod.precio).toLocaleString("es-AR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </Text>
                         </Text>
                       </View>
@@ -891,7 +1170,11 @@ export default function ReportesScreen() {
                         <Text style={styles.rowTxtBase}>
                           Valor total:{" "}
                           <Text style={{ fontWeight: "bold" }}>
-                            $ {prod.valCosto.toLocaleString("es-AR")}
+                            ${" "}
+                            {Number(prod.valCosto).toLocaleString("es-AR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </Text>
                         </Text>
                       </View>
@@ -905,7 +1188,11 @@ export default function ReportesScreen() {
                         <Text style={[styles.rowTxtBase, { color: "#16a34a" }]}>
                           Ganancia/ud:{" "}
                           <Text style={{ fontWeight: "bold" }}>
-                            + $ {prod.ganancia.toLocaleString("es-AR")}
+                            + ${" "}
+                            {Number(prod.ganancia).toLocaleString("es-AR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </Text>
                         </Text>
                       </View>
@@ -1021,6 +1308,47 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 15, fontWeight: "600", color: "#64748b" },
   tabTextActive: { color: "#0f172a" },
   tabContent: { paddingBottom: 40 },
+
+  filterWrapper: {
+    backgroundColor: "#ffffff",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginBottom: 20,
+  },
+  filterTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#475569",
+    marginBottom: 12,
+    textTransform: "uppercase",
+  },
+  labelInput: {
+    fontSize: 13,
+    color: "#64748b",
+    marginBottom: 6,
+    fontWeight: "600",
+  },
+  modalInputText: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 15,
+    backgroundColor: "#fff",
+    minHeight: 44,
+  },
+  btnFiltrar: {
+    backgroundColor: "#2563eb",
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+  },
+  txtFiltrar: { color: "#ffffff", fontWeight: "bold" },
+
   card: {
     backgroundColor: "#ffffff",
     padding: 20,
@@ -1077,6 +1405,36 @@ const styles = StyleSheet.create({
   rowTxtBase: { fontSize: 14, color: "#334155" },
   rowTxtSub: { fontSize: 13, color: "#94a3b8", marginTop: 2 },
 
+  accordionContent: {
+    backgroundColor: "#f1f5f9",
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: "#e2e8f0",
+    marginBottom: 12,
+  },
+  ticketRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: "#ffffff",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  ticketTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#1e293b",
+    marginBottom: 2,
+  },
+  ticketSub: { fontSize: 13, color: "#64748b" },
+  ticketTotal: { fontSize: 15, fontWeight: "bold", color: "#16a34a" },
+  ticketVendedor: { fontSize: 11, color: "#94a3b8", marginTop: 2 },
+
   badgeOk: {
     backgroundColor: "#d1fae5",
     paddingHorizontal: 12,
@@ -1085,12 +1443,19 @@ const styles = StyleSheet.create({
   },
   badgeTxtOk: { color: "#047857", fontSize: 12, fontWeight: "bold" },
   badgeBajo: {
+    backgroundColor: "#fee2e2",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  badgeTxtBajo: { color: "#b91c1c", fontSize: 12, fontWeight: "bold" },
+  badgeMedio: {
     backgroundColor: "#fef3c7",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
-  badgeTxtBajo: { color: "#b45309", fontSize: 12, fontWeight: "bold" },
+  badgeTxtMedio: { color: "#b45309", fontSize: 12, fontWeight: "bold" },
   badgeSinHistorial: {
     backgroundColor: "#f1f5f9",
     paddingHorizontal: 12,
@@ -1098,4 +1463,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   badgeTxtSinHistorial: { color: "#94a3b8", fontSize: 12, fontWeight: "bold" },
+
+  badgeSuperavit: {
+    backgroundColor: "#dbeafe",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  badgeTxtSuperavit: { color: "#1e40af", fontSize: 12, fontWeight: "bold" },
 });
