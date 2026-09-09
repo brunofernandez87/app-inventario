@@ -22,6 +22,8 @@ export default function Venta() {
   const [listaFiltrada, setListaFiltrada] = useState(listaVenta);
   const [cliente, setCliente] = useState("Todos");
   const [usuario, setUsuario] = useState("Todos");
+  const [ordenar, setOrdenar] = useState("fecha_venta");
+  const [asc, setAsc] = useState(false);
   const listaCliente = [
     { label: "Todos los clientes", value: "Todos" },
     ...Array.from(new Set(listaVenta.map((v) => v.cliente)))
@@ -47,7 +49,7 @@ export default function Venta() {
       })),
   ];
   useEffect(() => {
-    let resultado = listaVenta;
+    let resultado = [...listaVenta];
     if (cliente != "Todos") {
       resultado = resultado.filter((v) => v.cliente === cliente);
     }
@@ -56,8 +58,38 @@ export default function Venta() {
         (v) => v.usuario?.nombre_usuario === usuario,
       );
     }
+    resultado.sort((a, b) => {
+      let valorA = a[ordenar];
+      let valorB = b[ordenar];
+
+      if (ordenar === "usuario") {
+        valorA = a.usuario?.nombre_usuario || "";
+        valorB = b.usuario?.nombre_usuario || "";
+      }
+      let resultado1 = valorA;
+      let resultado2 = valorB;
+      if (asc === false) {
+        resultado1 = valorB;
+        resultado2 = valorA;
+      }
+      if (ordenar === "fecha_venta") {
+        return new Date(resultado1).getTime() - new Date(resultado2).getTime();
+      }
+      if (typeof valorA === "string") {
+        return String(resultado1).localeCompare(String(resultado2));
+      }
+      return resultado2 - resultado1;
+    });
     setListaFiltrada(resultado);
-  }, [listaVenta, cliente, usuario]);
+  }, [listaVenta, cliente, usuario, ordenar, asc]);
+  const manejarOrden = (columna: string) => {
+    if (ordenar === columna) {
+      setAsc(!asc);
+    } else {
+      setOrdenar(columna);
+      setAsc(false);
+    }
+  };
   const renderItem = useCallback(({ item }: { item: any }) => {
     const fechaFormateada = new Date(item.fecha_venta).toLocaleDateString(
       "es-AR",
@@ -176,25 +208,56 @@ export default function Venta() {
             <View style={{ minWidth: 800, width: "100%" }}>
               <View style={styles.encabezadoRow}>
                 <Text style={[styles.celdaEncabezado, { width: 60 }]}>#</Text>
-                <Text style={[styles.celdaEncabezado, { width: 140 }]}>
-                  Fecha
-                </Text>
-                <Text
-                  style={[styles.celdaEncabezado, { flex: 1, minWidth: 150 }]}
+                <Pressable
+                  onPress={() => {
+                    manejarOrden("fecha_venta");
+                  }}
                 >
-                  Cliente
-                </Text>
-                <Text
-                  style={[styles.celdaEncabezado, { flex: 1, minWidth: 120 }]}
+                  <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                    Fecha {ordenar === "fecha_venta" ? (asc ? "↑" : "↓") : ""}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    manejarOrden("cliente");
+                  }}
                 >
-                  Realizada por
-                </Text>
-                <Text style={[styles.celdaEncabezado, { width: 120 }]}>
-                  Total
-                </Text>
-                <Text style={[styles.celdaEncabezado, { width: 120 }]}>
-                  Estado
-                </Text>
+                  <Text
+                    style={[styles.celdaEncabezado, { flex: 1, minWidth: 150 }]}
+                  >
+                    Cliente {ordenar === "cliente" ? (asc ? "↑" : "↓") : ""}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    manejarOrden("usuario");
+                  }}
+                >
+                  <Text
+                    style={[styles.celdaEncabezado, { flex: 1, minWidth: 120 }]}
+                  >
+                    Realizada por{" "}
+                    {ordenar === "usuario" ? (asc ? "↑" : "↓") : ""}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    manejarOrden("total");
+                  }}
+                >
+                  <Text style={[styles.celdaEncabezado, { width: 120 }]}>
+                    Total {ordenar === "total" ? (asc ? "↑" : "↓") : ""}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    manejarOrden("estado");
+                  }}
+                >
+                  <Text style={[styles.celdaEncabezado, { width: 120 }]}>
+                    Estado {ordenar === "estado" ? (asc ? "↑" : "↓") : ""}
+                  </Text>
+                </Pressable>
               </View>
               <FlatList
                 // flatList ya viene con scroll view y podes limitar las columnas con num columns
