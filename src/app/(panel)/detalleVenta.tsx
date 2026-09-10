@@ -5,8 +5,16 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-export default function VentaDetalle() {
-  const { id, ticket } = useLocalSearchParams();
+export default function VentaDetalle({
+  idProp,
+  ticketProp,
+}: {
+  idProp?: number;
+  ticketProp?: string;
+}) {
+  const params = useLocalSearchParams();
+  const id = idProp || params.id;
+  const ticket = ticketProp || params.ticket;
   const { empresa } = useEmpresa();
   const [listaDetalle, setListaDetalle] = useState([]);
   const [cargando, setCargando] = useState(true);

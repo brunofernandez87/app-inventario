@@ -11,15 +11,20 @@ import {
   View,
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
-
+import VentaDetalle from "./detalleVenta";
 export default function Venta() {
   const { width } = useWindowDimensions();
+  const esPC = width >= 1024;
   const { listaVenta, cargando } = useListaVenta();
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_venta.toString(),
     [],
   );
   const [listaFiltrada, setListaFiltrada] = useState(listaVenta);
+  const [ventaSeleccionada, setVentaSeleccionada] = useState<{
+    id: number;
+    ticket: string;
+  } | null>(null);
   const [cliente, setCliente] = useState("Todos");
   const [usuario, setUsuario] = useState("Todos");
   const [ordenar, setOrdenar] = useState("fecha_venta");
@@ -90,192 +95,249 @@ export default function Venta() {
       setAsc(false);
     }
   };
-  const renderItem = useCallback(({ item }: { item: any }) => {
-    const fechaFormateada = new Date(item.fecha_venta).toLocaleDateString(
-      "es-AR",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      },
-    );
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.fila,
-          pressed && { backgroundColor: "#f8fafc" },
-        ]}
-        onPress={() => {
-          router.push({
-            pathname: "/detalleVenta",
-            params: { id: item.id_venta, ticket: item.numero_ticket },
-          });
-        }}
-      >
-        <View style={[styles.celda, { width: 60 }]}>
-          <Text style={styles.textoSecundario}>{item.numero_ticket}</Text>
-        </View>
+  const renderItem = useCallback(
+    ({ item }: { item: any }) => {
+      const fechaFormateada = new Date(item.fecha_venta).toLocaleDateString(
+        "es-AR",
+        {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        },
+      );
+      return (
+        <Pressable
+          style={({ pressed }) => [
+            styles.fila,
+            pressed && { backgroundColor: "#f8fafc" },
+            ventaSeleccionada?.id === item.id_venta && {
+              backgroundColor: "#e2e8f0",
+            },
+          ]}
+          onPress={() => {
+            if (esPC) {
+              setVentaSeleccionada({
+                id: item.id_venta,
+                ticket: item.numero_ticket,
+              });
+            } else {
+              router.push({
+                pathname: "/detalleVenta",
+                params: { id: item.id_venta, ticket: item.numero_ticket },
+              });
+            }
+          }}
+        >
+          <View style={[styles.celda, { width: 60 }]}>
+            <Text style={styles.textoSecundario}>{item.numero_ticket}</Text>
+          </View>
 
-        {/* Fecha */}
-        <View style={[styles.celda, { width: 140 }]}>
-          <Text style={styles.textoPrincipal} numberOfLines={1}>
-            {fechaFormateada}
-          </Text>
-        </View>
+          {/* Fecha */}
+          <View style={[styles.celda, { width: 140 }]}>
+            <Text style={styles.textoPrincipal} numberOfLines={1}>
+              {fechaFormateada}
+            </Text>
+          </View>
 
-        {/* Cliente */}
-        <View style={[styles.celda, { flex: 1, minWidth: 150 }]}>
-          <Text
-            style={[styles.textoPrincipal, { fontSize: 14 }]}
-            numberOfLines={1}
+          {/* Cliente */}
+          <View style={[styles.celda, { flex: 1, minWidth: 150 }]}>
+            <Text
+              style={[styles.textoPrincipal, { fontSize: 14 }]}
+              numberOfLines={1}
+            >
+              {item.cliente || "Cliente"}
+            </Text>
+          </View>
+          {/* Usuario */}
+          <View style={[styles.celda, { flex: 1, minWidth: 120 }]}>
+            <Text style={styles.textoSecundario} numberOfLines={1}>
+              {item.usuario.nombre_usuario}
+            </Text>
+          </View>
+
+          {/* Total */}
+          <View style={[styles.celda, { width: 120 }]}>
+            <Text
+              style={[
+                styles.textoPrincipal,
+                { fontWeight: "bold", fontSize: 15 },
+              ]}
+            >
+              $ {Number(item.total || 0).toFixed(2)}
+            </Text>
+          </View>
+
+          {/* Estado (Badge) */}
+          <View
+            style={[styles.celda, { width: 120, alignItems: "flex-start" }]}
           >
-            {item.cliente || "Cliente"}
-          </Text>
-        </View>
-        {/* Usuario */}
-        <View style={[styles.celda, { flex: 1, minWidth: 120 }]}>
-          <Text style={styles.textoSecundario} numberOfLines={1}>
-            {item.usuario.nombre_usuario}
-          </Text>
-        </View>
-
-        {/* Total */}
-        <View style={[styles.celda, { width: 120 }]}>
-          <Text
-            style={[
-              styles.textoPrincipal,
-              { fontWeight: "bold", fontSize: 15 },
-            ]}
-          >
-            $ {Number(item.total || 0).toFixed(2)}
-          </Text>
-        </View>
-
-        {/* Estado (Badge) */}
-        <View style={[styles.celda, { width: 120, alignItems: "flex-start" }]}>
-          <Text style={styles.textoPrincipal} numberOfLines={2}>
-            {item.estado || "Desconocido"}
-          </Text>
-        </View>
-      </Pressable>
-    );
-  }, []);
+            <Text style={styles.textoPrincipal} numberOfLines={2}>
+              {item.estado || "Desconocido"}
+            </Text>
+          </View>
+        </Pressable>
+      );
+    },
+    [esPC, ventaSeleccionada],
+  );
 
   return (
     <View style={{ flex: 1, padding: 20 }}>
       <Stack.Screen options={{ title: "Historial de Ventas" }} />
       <Text style={styles.titulo}>Historial de ventas</Text>
-      {cargando ? (
-        <Text style={styles.textoMensaje}>Cargando...</Text>
-      ) : listaFiltrada.length === 0 ? (
-        <Text style={styles.textoMensaje}>No hay ventas registradas.</Text>
-      ) : (
-        <View style={styles.contenedorTabla}>
+      <View
+        style={{ flex: 1, flexDirection: esPC ? "row" : "column", gap: 20 }}
+      >
+        <View style={{ flex: esPC ? 1.2 : 1 }}>
+          {cargando ? (
+            <Text style={styles.textoMensaje}>Cargando...</Text>
+          ) : listaFiltrada.length === 0 ? (
+            <Text style={styles.textoMensaje}>No hay ventas registradas.</Text>
+          ) : (
+            <View style={styles.contenedorTabla}>
+              <View
+                style={[
+                  styles.contenedorFiltros,
+                  { flexDirection: width < 768 ? "column" : "row" },
+                ]}
+              >
+                <Dropdown
+                  style={[styles.dropdown, width >= 768 && { flex: 1 }]}
+                  data={listaCliente}
+                  search={true}
+                  searchPlaceholder="Escribi el nombre del cliente..."
+                  labelField="label"
+                  valueField="value"
+                  placeholder="seleccionar cliente"
+                  value={cliente}
+                  onChange={(item) => {
+                    setCliente(item.value);
+                  }}
+                />
+                <Dropdown
+                  style={[styles.dropdown, width >= 768 && { flex: 1 }]}
+                  data={listaUsuarios}
+                  search={true}
+                  searchPlaceholder="Escribi el nombre del usuario..."
+                  labelField="label"
+                  valueField="value"
+                  placeholder="seleccionar usuario"
+                  value={usuario}
+                  onChange={(item) => {
+                    setUsuario(item.value);
+                  }}
+                />
+              </View>
+              <ScrollView horizontal={true} style={{ flex: 1 }}>
+                <View style={{ minWidth: 800, width: "100%" }}>
+                  <View style={styles.encabezadoRow}>
+                    <Text style={[styles.celdaEncabezado, { width: 60 }]}>
+                      #
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        manejarOrden("fecha_venta");
+                      }}
+                    >
+                      <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                        Fecha{" "}
+                        {ordenar === "fecha_venta" ? (asc ? "↑" : "↓") : ""}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        manejarOrden("cliente");
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.celdaEncabezado,
+                          { flex: 1, minWidth: 150 },
+                        ]}
+                      >
+                        Cliente {ordenar === "cliente" ? (asc ? "↑" : "↓") : ""}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        manejarOrden("usuario");
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.celdaEncabezado,
+                          { flex: 1, minWidth: 120 },
+                        ]}
+                      >
+                        Realizada por{" "}
+                        {ordenar === "usuario" ? (asc ? "↑" : "↓") : ""}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        manejarOrden("total");
+                      }}
+                    >
+                      <Text style={[styles.celdaEncabezado, { width: 120 }]}>
+                        Total {ordenar === "total" ? (asc ? "↑" : "↓") : ""}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        manejarOrden("estado");
+                      }}
+                    >
+                      <Text style={[styles.celdaEncabezado, { width: 120 }]}>
+                        Estado {ordenar === "estado" ? (asc ? "↑" : "↓") : ""}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <FlatList
+                    // flatList ya viene con scroll view y podes limitar las columnas con num columns
+                    // es el arreglo que va a recorrer
+                    data={listaFiltrada}
+                    // sirve para saber cual es la clave de cada fila tiene que ser string lo que se pasa en key extractor
+                    keyExtractor={memoizedKeyExtractor}
+                    // se le muestra como muestra el item desestructurandolo
+                    renderItem={renderItem}
+                    // Optimizaciones extra para FlatList con muchos datos:
+                    initialNumToRender={15}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                  />
+                </View>
+              </ScrollView>
+            </View>
+          )}
+        </View>
+        {esPC && (
           <View
             style={[
-              styles.contenedorFiltros,
-              { flexDirection: width < 768 ? "column" : "row" },
+              styles.contenedorTabla,
+              { flex: 0.8, backgroundColor: "#f8fafc" },
             ]}
           >
-            <Dropdown
-              style={[styles.dropdown, width >= 768 && { flex: 1 }]}
-              data={listaCliente}
-              search={true}
-              searchPlaceholder="Escribi el nombre del cliente..."
-              labelField="label"
-              valueField="value"
-              placeholder="seleccionar cliente"
-              value={cliente}
-              onChange={(item) => {
-                setCliente(item.value);
-              }}
-            />
-            <Dropdown
-              style={[styles.dropdown, width >= 768 && { flex: 1 }]}
-              data={listaUsuarios}
-              search={true}
-              searchPlaceholder="Escribi el nombre del usuario..."
-              labelField="label"
-              valueField="value"
-              placeholder="seleccionar usuario"
-              value={usuario}
-              onChange={(item) => {
-                setUsuario(item.value);
-              }}
-            />
-          </View>
-          <ScrollView horizontal={true} style={{ flex: 1 }}>
-            <View style={{ minWidth: 800, width: "100%" }}>
-              <View style={styles.encabezadoRow}>
-                <Text style={[styles.celdaEncabezado, { width: 60 }]}>#</Text>
-                <Pressable
-                  onPress={() => {
-                    manejarOrden("fecha_venta");
-                  }}
-                >
-                  <Text style={[styles.celdaEncabezado, { width: 140 }]}>
-                    Fecha {ordenar === "fecha_venta" ? (asc ? "↑" : "↓") : ""}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    manejarOrden("cliente");
-                  }}
-                >
-                  <Text
-                    style={[styles.celdaEncabezado, { flex: 1, minWidth: 150 }]}
-                  >
-                    Cliente {ordenar === "cliente" ? (asc ? "↑" : "↓") : ""}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    manejarOrden("usuario");
-                  }}
-                >
-                  <Text
-                    style={[styles.celdaEncabezado, { flex: 1, minWidth: 120 }]}
-                  >
-                    Realizada por{" "}
-                    {ordenar === "usuario" ? (asc ? "↑" : "↓") : ""}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    manejarOrden("total");
-                  }}
-                >
-                  <Text style={[styles.celdaEncabezado, { width: 120 }]}>
-                    Total {ordenar === "total" ? (asc ? "↑" : "↓") : ""}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    manejarOrden("estado");
-                  }}
-                >
-                  <Text style={[styles.celdaEncabezado, { width: 120 }]}>
-                    Estado {ordenar === "estado" ? (asc ? "↑" : "↓") : ""}
-                  </Text>
-                </Pressable>
-              </View>
-              <FlatList
-                // flatList ya viene con scroll view y podes limitar las columnas con num columns
-                // es el arreglo que va a recorrer
-                data={listaFiltrada}
-                // sirve para saber cual es la clave de cada fila tiene que ser string lo que se pasa en key extractor
-                keyExtractor={memoizedKeyExtractor}
-                // se le muestra como muestra el item desestructurandolo
-                renderItem={renderItem}
-                // Optimizaciones extra para FlatList con muchos datos:
-                initialNumToRender={15}
-                maxToRenderPerBatch={10}
-                windowSize={5}
+            {ventaSeleccionada ? (
+              <VentaDetalle
+                idProp={ventaSeleccionada.id}
+                ticketProp={ventaSeleccionada.ticket}
               />
-            </View>
-          </ScrollView>
-        </View>
-      )}
+            ) : (
+              <View
+                style={{
+                  flex: 1,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Text style={styles.textoMensaje}>
+                  Seleccioná una venta para ver el detalle
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
