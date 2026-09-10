@@ -1,4 +1,5 @@
 import { useEmpresa } from "@/context/empresaContext";
+import { notificaciones } from "@/service/notificaciones";
 import {
   obtenerHistorialGraficos,
   obtenerProyeccionesYRentabilidad,
@@ -9,7 +10,6 @@ import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   LogBox,
   Platform,
   ScrollView,
@@ -82,15 +82,19 @@ export default function ReportesScreen() {
 
   const [tabActiva, setTabActiva] = useState("Resumen Mensual");
   const [loading, setLoading] = useState(true);
+  const [filtroExpandido, setFiltroExpandido] = useState(false);
 
-  const hoy = new Date();
-  const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   const formatoYYYYMMDD = (d: Date) =>
     `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
 
-  const [fechaInicio, setFechaInicio] = useState(formatoYYYYMMDD(primerDia));
+  const hoy = new Date();
+  const añoAtras = new Date(hoy.getFullYear(), hoy.getMonth() - 11, 1);
+
+  const [fechaInicio, setFechaInicio] = useState(formatoYYYYMMDD(añoAtras));
   const [fechaFin, setFechaFin] = useState(formatoYYYYMMDD(hoy));
   const [mesExpandido, setMesExpandido] = useState<number | null>(null);
+
+  const [ticketExpandido, setTicketExpandido] = useState<number | null>(null);
 
   const [datosMensuales, setDatosMensuales] = useState({
     transacciones: 0,
@@ -99,9 +103,9 @@ export default function ReportesScreen() {
     gananciaNeta: 0,
   });
   const [historialGraficos, setHistorialGraficos] = useState<any>({
-    labels: Array(12).fill("-"),
-    ganancias: Array(12).fill(0),
-    transacciones: Array(12).fill(0),
+    labels: [],
+    ganancias: [],
+    transacciones: [],
     ventasPorMes: {},
   });
 
@@ -141,6 +145,22 @@ export default function ReportesScreen() {
     setFecha(formateado);
   };
 
+  const setFiltroRapido = (mesesAtras: number | "todo") => {
+    const d = new Date();
+    if (mesesAtras === "todo") {
+      const fechaCreacion = (empresa as any)?.fecha_creacion
+        ? new Date((empresa as any).fecha_creacion)
+        : new Date("2020-01-01");
+
+      setFechaInicio(formatoYYYYMMDD(fechaCreacion));
+      setFechaFin(formatoYYYYMMDD(d));
+    } else {
+      const inicio = new Date(d.getFullYear(), d.getMonth() - mesesAtras, 1);
+      setFechaInicio(formatoYYYYMMDD(inicio));
+      setFechaFin(formatoYYYYMMDD(d));
+    }
+  };
+
   const cargarDatos = async (usarFiltroPersonalizado = false) => {
     if (!empresa) return;
     setLoading(true);
@@ -149,6 +169,9 @@ export default function ReportesScreen() {
     let fFin = undefined;
 
     if (usarFiltroPersonalizado) {
+      fInicio = Platform.OS === "web" ? fechaInicio : dateToWeb(fechaInicio);
+      fFin = Platform.OS === "web" ? fechaFin : dateToWeb(fechaFin);
+    } else {
       fInicio = Platform.OS === "web" ? fechaInicio : dateToWeb(fechaInicio);
       fFin = Platform.OS === "web" ? fechaFin : dateToWeb(fechaFin);
     }
@@ -164,6 +187,11 @@ export default function ReportesScreen() {
     setProyecciones(extraData.proyecciones);
     setRentabilidad(extraData.rentabilidad);
     setResumenRentabilidad(extraData.resumenRentabilidad);
+
+    if (usarFiltroPersonalizado) {
+      setFiltroExpandido(false);
+    }
+
     setLoading(false);
   };
 
@@ -186,9 +214,83 @@ export default function ReportesScreen() {
     return styles.badgeTxtSinHistorial;
   };
 
+  const generarMesesFiltrados = () => {
+    try {
+      const fInitStr =
+        Platform.OS === "web" ? fechaInicio : dateToWeb(fechaInicio);
+      const fFinStr = Platform.OS === "web" ? fechaFin : dateToWeb(fechaFin);
+
+      const start = new Date(fInitStr + "T00:00:00");
+      const end = new Date(fFinStr + "T23:59:59");
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+        return [];
+      }
+
+      const hoyDate = new Date();
+      const currentMonth = hoyDate.getMonth();
+      const currentYear = hoyDate.getFullYear();
+
+      const listaMesesFinal: any[] = [];
+      const totalLabels = historialGraficos.labels?.length || 0;
+
+      if (totalLabels === 0) return [];
+
+      historialGraficos.labels.forEach((label: string, arrayIndex: number) => {
+        if (label === "-") return;
+
+        const mesesAtras = totalLabels - 1 - arrayIndex;
+        const fechaDelMes = new Date(currentYear, currentMonth - mesesAtras, 1);
+
+        const inicioDelMes = new Date(
+          fechaDelMes.getFullYear(),
+          fechaDelMes.getMonth(),
+          1,
+        );
+        const finDelMes = new Date(
+          fechaDelMes.getFullYear(),
+          fechaDelMes.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+        );
+
+        if (inicioDelMes <= end && finDelMes >= start) {
+          listaMesesFinal.push({
+            mes: label,
+            indexReal: arrayIndex,
+            transacciones: historialGraficos.transacciones[arrayIndex],
+            ganancias: historialGraficos.ganancias[arrayIndex],
+            ventasMes: historialGraficos.ventasPorMes[arrayIndex] || [],
+          });
+        }
+      });
+
+      return listaMesesFinal;
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const mesesParaMostrar = generarMesesFiltrados();
+
   const generarPDF = async () => {
     try {
       setLoading(true);
+
+      const dateInicio = new Date(`${dateToWeb(fechaInicio)}T00:00:00`);
+      const dateFin = new Date(`${dateToWeb(fechaFin)}T23:59:59`);
+
+      if (isNaN(dateInicio.getTime()) || isNaN(dateFin.getTime())) {
+        return notificaciones.error("Error", "Las fechas no son válidas.");
+      }
+      if (dateInicio > dateFin) {
+        return notificaciones.error(
+          "Error",
+          "La fecha de inicio no puede ser mayor a la de fin.",
+        );
+      }
 
       let htmlContent = `
         <!DOCTYPE html>
@@ -230,12 +332,12 @@ export default function ReportesScreen() {
         htmlContent += `
             <h1>Reporte de Resumen Mensual</h1>
             <div class="summary-container">
-              <div class="summary-box"><h3>Ventas del Mes</h3><p>${datosMensuales.transacciones}</p></div>
+              <div class="summary-box"><h3>Ventas del Período</h3><p>${datosMensuales.transacciones}</p></div>
               <div class="summary-box"><h3>Prod. Vendidos</h3><p>${datosMensuales.unidadesVendidas}</p></div>
               <div class="summary-box"><h3>Costos Totales</h3><p>$ ${Number(datosMensuales.costosTotales).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>
               <div class="summary-box"><h3>Ganancia Neta</h3><p>$ ${Number(datosMensuales.gananciaNeta).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>
             </div>
-            <h2 style="color: #0f172a; margin-top: 30px; font-size: 18px; text-align:left;">Desglose Histórico (12 Meses)</h2>
+            <h2 style="color: #0f172a; margin-top: 30px; font-size: 18px; text-align:left;">Desglose del Período Filtrado</h2>
             <table>
               <thead>
                 <tr>
@@ -247,22 +349,20 @@ export default function ReportesScreen() {
               <tbody>
         `;
 
-        Array.from({ length: 12 }).forEach((_, i) => {
-          const indexReal = 11 - i;
-          const mes = historialGraficos.labels[indexReal];
-          const transacciones = historialGraficos.transacciones[indexReal];
-          const ganancias = historialGraficos.ganancias[indexReal];
-
-          if (mes !== "-") {
-            htmlContent += `
-              <tr>
-                <td><strong>${mes} ${indexReal === 11 ? "(Actual)" : ""}</strong></td>
-                <td style="text-align: center;">${transacciones} tickets</td>
-                <td style="text-align: right;" class="val-green">$ ${Number(ganancias).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-            `;
-          }
+        mesesParaMostrar.reverse().forEach((itemData: any) => {
+          htmlContent += `
+            <tr>
+              <td><strong>${itemData.mes}</strong></td>
+              <td style="text-align: center;">${itemData.transacciones} tickets</td>
+              <td style="text-align: right;" class="val-green">$ ${Number(itemData.ganancias).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            </tr>
+          `;
         });
+
+        if (mesesParaMostrar.length === 0) {
+          htmlContent += `<tr><td colspan="3" style="text-align:center;">No hay datos para el período seleccionado.</td></tr>`;
+        }
+
         htmlContent += `</tbody></table>`;
       } else if (tabActiva === "Proyecciones") {
         htmlContent += `
@@ -335,8 +435,12 @@ export default function ReportesScreen() {
       htmlContent += `</body></html>`;
 
       await imprimirPDF(htmlContent);
+      notificaciones.exito(
+        "¡Reporte Creado!",
+        "Tu PDF se generó correctamente.",
+      );
     } catch (error) {
-      Alert.alert("Error", "No se pudo generar el documento PDF.");
+      notificaciones.error("Error", "No se pudo generar el documento PDF.");
     } finally {
       setLoading(false);
     }
@@ -360,12 +464,16 @@ export default function ReportesScreen() {
         />
       );
 
+    const labelsData =
+      historialGraficos.labels?.length > 0
+        ? historialGraficos.labels
+        : Array(12).fill("-");
     const dataGanancias = {
-      labels: historialGraficos.labels,
+      labels: labelsData,
       datasets: [
         {
           data:
-            historialGraficos.ganancias.length > 0
+            historialGraficos.ganancias?.length > 0
               ? historialGraficos.ganancias
               : Array(12).fill(0),
         },
@@ -373,11 +481,11 @@ export default function ReportesScreen() {
     };
 
     const dataVentas = {
-      labels: historialGraficos.labels,
+      labels: labelsData,
       datasets: [
         {
           data:
-            historialGraficos.transacciones.length > 0
+            historialGraficos.transacciones?.length > 0
               ? historialGraficos.transacciones
               : Array(12).fill(0),
         },
@@ -385,94 +493,157 @@ export default function ReportesScreen() {
     };
 
     const isWeb = Platform.OS === "web";
-    const anchoGrafico = 700;
+    const anchoGrafico = Math.max(700, labelsData.length * 60);
 
     return (
       <View style={styles.tabContent}>
         <View style={styles.filterWrapper}>
-          <Text style={styles.filterTitle}>Filtrar Resumen General</Text>
-          <View style={{ flexDirection: isMobile ? "column" : "row", gap: 16 }}>
-            <View style={isMobile ? { width: "100%" } : { flex: 1 }}>
-              <Text style={styles.labelInput}>Fecha Inicio</Text>
-              {Platform.OS === "web" ? (
-                <input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                  style={
-                    {
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "15px",
-                      color: "#334155",
-                      fontFamily: "inherit",
-                      outline: "none",
-                      boxSizing: "border-box",
-                      minHeight: "44px",
-                    } as any
-                  }
-                />
-              ) : (
-                <TextInput
-                  style={styles.modalInputText}
-                  placeholder="DD/MM/YYYY"
-                  value={fechaInicio}
-                  onChangeText={(t) => manejarCambioFecha(t, setFechaInicio)}
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
-              )}
-            </View>
-            <View style={isMobile ? { width: "100%" } : { flex: 1 }}>
-              <Text style={styles.labelInput}>Fecha Fin</Text>
-              {Platform.OS === "web" ? (
-                <input
-                  type="date"
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                  style={
-                    {
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "15px",
-                      color: "#334155",
-                      fontFamily: "inherit",
-                      outline: "none",
-                      boxSizing: "border-box",
-                      minHeight: "44px",
-                    } as any
-                  }
-                />
-              ) : (
-                <TextInput
-                  style={styles.modalInputText}
-                  placeholder="DD/MM/YYYY"
-                  value={fechaFin}
-                  onChangeText={(t) => manejarCambioFecha(t, setFechaFin)}
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
-              )}
-            </View>
-            <View
-              style={
-                isMobile
-                  ? { width: "100%", marginTop: 8 }
-                  : { flex: 0.5, justifyContent: "flex-end" }
-              }
-            >
-              <TouchableOpacity
-                style={styles.btnFiltrar}
-                onPress={() => cargarDatos(true)}
+          <TouchableOpacity
+            style={styles.filterHeaderRow}
+            onPress={() => setFiltroExpandido(!filtroExpandido)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.filterTitle}>Filtrar Resumen General</Text>
+            <Text style={{ fontSize: 16, color: "#64748b" }}>
+              {filtroExpandido ? "▲" : "▼"}
+            </Text>
+          </TouchableOpacity>
+
+          {filtroExpandido && (
+            <View style={{ marginTop: 15 }}>
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: "#94a3b8",
+                  marginBottom: 8,
+                  textTransform: "uppercase",
+                  fontWeight: "bold",
+                }}
               >
-                <Text style={styles.txtFiltrar}>Aplicar Filtro</Text>
-              </TouchableOpacity>
+                Filtros rápidos
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: 10,
+                  marginBottom: 15,
+                  flexWrap: "wrap",
+                }}
+              >
+                <TouchableOpacity
+                  style={styles.btnFiltroRapido}
+                  onPress={() => setFiltroRapido(0)}
+                >
+                  <Text style={styles.txtFiltroRapido}>Este Mes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.btnFiltroRapido}
+                  onPress={() => setFiltroRapido(5)}
+                >
+                  <Text style={styles.txtFiltroRapido}>Últimos 6 Meses</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.btnFiltroRapido}
+                  onPress={() => setFiltroRapido(11)}
+                >
+                  <Text style={styles.txtFiltroRapido}>Todo el Año</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.btnFiltroRapido}
+                  onPress={() => setFiltroRapido("todo")}
+                >
+                  <Text style={styles.txtFiltroRapido}>Todo</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View
+                style={{ flexDirection: isMobile ? "column" : "row", gap: 16 }}
+              >
+                <View style={isMobile ? { width: "100%" } : { flex: 1 }}>
+                  <Text style={styles.labelInput}>Fecha Inicio</Text>
+                  {Platform.OS === "web" ? (
+                    <input
+                      type="date"
+                      value={fechaInicio}
+                      onChange={(e) => setFechaInicio(e.target.value)}
+                      style={
+                        {
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: "8px",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "15px",
+                          color: "#334155",
+                          fontFamily: "inherit",
+                          outline: "none",
+                          boxSizing: "border-box",
+                          minHeight: "44px",
+                        } as any
+                      }
+                    />
+                  ) : (
+                    <TextInput
+                      style={styles.modalInputText}
+                      placeholder="DD/MM/YYYY"
+                      value={fechaInicio}
+                      onChangeText={(t) =>
+                        manejarCambioFecha(t, setFechaInicio)
+                      }
+                      keyboardType="numeric"
+                      maxLength={10}
+                    />
+                  )}
+                </View>
+                <View style={isMobile ? { width: "100%" } : { flex: 1 }}>
+                  <Text style={styles.labelInput}>Fecha Fin</Text>
+                  {Platform.OS === "web" ? (
+                    <input
+                      type="date"
+                      value={fechaFin}
+                      onChange={(e) => setFechaFin(e.target.value)}
+                      style={
+                        {
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: "8px",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "15px",
+                          color: "#334155",
+                          fontFamily: "inherit",
+                          outline: "none",
+                          boxSizing: "border-box",
+                          minHeight: "44px",
+                        } as any
+                      }
+                    />
+                  ) : (
+                    <TextInput
+                      style={styles.modalInputText}
+                      placeholder="DD/MM/YYYY"
+                      value={fechaFin}
+                      onChangeText={(t) => manejarCambioFecha(t, setFechaFin)}
+                      keyboardType="numeric"
+                      maxLength={10}
+                    />
+                  )}
+                </View>
+                <View
+                  style={
+                    isMobile
+                      ? { width: "100%", marginTop: 8 }
+                      : { flex: 0.5, justifyContent: "flex-end" }
+                  }
+                >
+                  <TouchableOpacity
+                    style={styles.btnFiltrar}
+                    onPress={() => cargarDatos(true)}
+                  >
+                    <Text style={styles.txtFiltrar}>Aplicar Filtro</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         <View
@@ -506,7 +677,7 @@ export default function ReportesScreen() {
         </View>
 
         <Text style={[styles.cardTituloGrafico, { marginLeft: 5 }]}>
-          Histórico Anual (Últimos 12 meses)
+          Gráficos Históricos
         </Text>
         <ScrollView
           horizontal
@@ -557,188 +728,271 @@ export default function ReportesScreen() {
 
         <View style={[styles.tableCard, { marginTop: 10 }]}>
           <View style={styles.tableCardHeader}>
-            <Text style={styles.tableCardTitle}>Desglose Mes a Mes</Text>
+            <Text style={styles.tableCardTitle}>
+              Desglose Mes a Mes del Período
+            </Text>
             <Text style={styles.tableCardSub}>
-              Toca un mes para ver las ventas (Tickets)
+              Toca un mes para ver las ventas, y luego un ticket para ver su
+              detalle.
             </Text>
           </View>
           <View style={{ paddingTop: 10 }}>
-            {Array.from({ length: 12 }).map((_, i) => {
-              const indexReal = 11 - i;
-              const mes = historialGraficos.labels[indexReal];
-              const transacciones = historialGraficos.transacciones[indexReal];
-              const ganancias = historialGraficos.ganancias[indexReal];
-              const ventasMes = historialGraficos.ventasPorMes[indexReal] || [];
-              const estaExpandido = mesExpandido === indexReal;
+            {mesesParaMostrar.length === 0 ? (
+              <Text
+                style={{
+                  textAlign: "center",
+                  color: "#64748b",
+                  padding: 20,
+                  fontStyle: "italic",
+                }}
+              >
+                No hay datos para el rango de fechas seleccionado.
+              </Text>
+            ) : (
+              mesesParaMostrar.reverse().map((itemData: any) => {
+                const { mes, indexReal, transacciones, ganancias, ventasMes } =
+                  itemData;
+                const estaExpandido = mesExpandido === indexReal;
 
-              if (mes === "-") return null;
-
-              return (
-                <View key={indexReal} style={{ marginBottom: 12 }}>
-                  <TouchableOpacity
-                    style={[
-                      styles.cardMobile,
-                      isWeb && {
-                        flexDirection: "row",
-                        alignItems: "center",
-                        paddingVertical: 14,
-                      },
-                      { marginBottom: 0 },
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() =>
-                      setMesExpandido(estaExpandido ? null : indexReal)
-                    }
-                  >
-                    {isWeb ? (
-                      <>
-                        <View style={{ flex: 1, paddingRight: 10 }}>
-                          <Text
-                            style={[
-                              styles.rowTxtBase,
-                              { fontWeight: "bold", fontSize: 16 },
-                            ]}
-                          >
-                            {mes} {indexReal === 11 && "(Actual)"}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1, alignItems: "center" }}>
-                          <Text style={styles.rowTxtBase}>
-                            Tickets:{" "}
-                            <Text style={{ fontWeight: "bold" }}>
-                              {transacciones}
+                return (
+                  <View key={indexReal} style={{ marginBottom: 12 }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.cardMobile,
+                        isWeb && {
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingVertical: 14,
+                        },
+                        { marginBottom: 0 },
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        setMesExpandido(estaExpandido ? null : indexReal)
+                      }
+                    >
+                      {isWeb ? (
+                        <>
+                          <View style={{ flex: 1, paddingRight: 10 }}>
+                            <Text
+                              style={[
+                                styles.rowTxtBase,
+                                { fontWeight: "bold", fontSize: 16 },
+                              ]}
+                            >
+                              {mes}
                             </Text>
-                          </Text>
-                        </View>
-                        <View
-                          style={{
-                            flex: 1,
-                            alignItems: "flex-end",
-                            paddingLeft: 10,
-                            flexDirection: "row",
-                            justifyContent: "flex-end",
-                            gap: 15,
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.rowTxtBase,
-                              {
-                                color: "#16a34a",
-                                fontWeight: "bold",
-                                fontSize: 16,
-                              },
-                            ]}
+                          </View>
+                          <View style={{ flex: 1, alignItems: "center" }}>
+                            <Text style={styles.rowTxtBase}>
+                              Tickets:{" "}
+                              <Text style={{ fontWeight: "bold" }}>
+                                {transacciones}
+                              </Text>
+                            </Text>
+                          </View>
+                          <View
+                            style={{
+                              flex: 1,
+                              alignItems: "flex-end",
+                              paddingLeft: 10,
+                              flexDirection: "row",
+                              justifyContent: "flex-end",
+                              gap: 15,
+                            }}
                           >
-                            Ingresos: ${" "}
-                            {Number(ganancias).toLocaleString("es-AR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </Text>
-                          <Text style={{ fontSize: 16, color: "#94a3b8" }}>
-                            {estaExpandido ? "▲" : "▼"}
-                          </Text>
-                        </View>
-                      </>
-                    ) : (
-                      <>
-                        <View style={styles.cardRowMobile}>
-                          <Text
-                            style={[
-                              styles.rowTxtBase,
-                              { fontWeight: "bold", fontSize: 16 },
-                            ]}
-                          >
-                            {mes} {indexReal === 11 && "(Actual)"}
-                          </Text>
-                          <Text style={{ fontSize: 16, color: "#94a3b8" }}>
-                            {estaExpandido ? "▲" : "▼"}
-                          </Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.cardRowMobile,
-                            { marginTop: 4, marginBottom: 0 },
-                          ]}
-                        >
-                          <Text style={styles.rowTxtSub}>
-                            {transacciones} tickets de venta
-                          </Text>
-                          <Text
-                            style={[
-                              styles.rowTxtBase,
-                              {
-                                color: "#16a34a",
-                                fontWeight: "bold",
-                                fontSize: 16,
-                              },
-                            ]}
-                          >
-                            ${" "}
-                            {Number(ganancias).toLocaleString("es-AR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </Text>
-                        </View>
-                      </>
-                    )}
-                  </TouchableOpacity>
-
-                  {/* ACORDEON CON LOS TICKETS DEL MES */}
-                  {estaExpandido && (
-                    <View style={styles.accordionContent}>
-                      {ventasMes.length === 0 ? (
-                        <Text
-                          style={{
-                            color: "#94a3b8",
-                            fontStyle: "italic",
-                            textAlign: "center",
-                            padding: 10,
-                          }}
-                        >
-                          Sin ventas registradas en este mes.
-                        </Text>
+                            <Text
+                              style={[
+                                styles.rowTxtBase,
+                                {
+                                  color: "#16a34a",
+                                  fontWeight: "bold",
+                                  fontSize: 16,
+                                },
+                              ]}
+                            >
+                              Ingresos: ${" "}
+                              {Number(ganancias).toLocaleString("es-AR", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </Text>
+                            <Text style={{ fontSize: 16, color: "#94a3b8" }}>
+                              {estaExpandido ? "▲" : "▼"}
+                            </Text>
+                          </View>
+                        </>
                       ) : (
-                        ventasMes.map((venta: any) => {
-                          const d = new Date(venta.fecha_venta);
-                          const fechaCorta = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
-                          return (
-                            <View key={venta.id_venta} style={styles.ticketRow}>
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.ticketTitle}>
-                                  Ticket #
-                                  {venta.numero_ticket || venta.id_venta}
-                                </Text>
-                                <Text style={styles.ticketSub}>
-                                  {fechaCorta} -{" "}
-                                  {venta.cliente || "Consumidor Final"}
-                                </Text>
-                              </View>
-                              <View style={{ alignItems: "flex-end" }}>
-                                <Text style={styles.ticketTotal}>
-                                  ${" "}
-                                  {Number(venta.total).toLocaleString("es-AR", {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}
-                                </Text>
-                                <Text style={styles.ticketVendedor}>
-                                  Por:{" "}
-                                  {venta.usuario?.nombre_usuario ||
-                                    "Desconocido"}
-                                </Text>
-                              </View>
-                            </View>
-                          );
-                        })
+                        <>
+                          <View style={styles.cardRowMobile}>
+                            <Text
+                              style={[
+                                styles.rowTxtBase,
+                                { fontWeight: "bold", fontSize: 16 },
+                              ]}
+                            >
+                              {mes}
+                            </Text>
+                            <Text style={{ fontSize: 16, color: "#94a3b8" }}>
+                              {estaExpandido ? "▲" : "▼"}
+                            </Text>
+                          </View>
+                          <View
+                            style={[
+                              styles.cardRowMobile,
+                              { marginTop: 4, marginBottom: 0 },
+                            ]}
+                          >
+                            <Text style={styles.rowTxtSub}>
+                              {transacciones} tickets de venta
+                            </Text>
+                            <Text
+                              style={[
+                                styles.rowTxtBase,
+                                {
+                                  color: "#16a34a",
+                                  fontWeight: "bold",
+                                  fontSize: 16,
+                                },
+                              ]}
+                            >
+                              ${" "}
+                              {Number(ganancias).toLocaleString("es-AR", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </Text>
+                          </View>
+                        </>
                       )}
-                    </View>
-                  )}
-                </View>
-              );
-            })}
+                    </TouchableOpacity>
+
+                    {estaExpandido && (
+                      <View style={styles.accordionContent}>
+                        {ventasMes.length === 0 ? (
+                          <Text
+                            style={{
+                              color: "#94a3b8",
+                              fontStyle: "italic",
+                              textAlign: "center",
+                              padding: 10,
+                            }}
+                          >
+                            Sin ventas registradas en este mes.
+                          </Text>
+                        ) : (
+                          ventasMes.map((venta: any) => {
+                            const d = new Date(venta.fecha_venta);
+                            const fechaCorta = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+
+                            const esTicketExpandido =
+                              ticketExpandido === venta.id_venta;
+
+                            return (
+                              <View
+                                key={venta.id_venta}
+                                style={{ marginBottom: 8 }}
+                              >
+                                <TouchableOpacity
+                                  style={[
+                                    styles.ticketRow,
+                                    esTicketExpandido && {
+                                      borderBottomLeftRadius: 0,
+                                      borderBottomRightRadius: 0,
+                                      marginBottom: 0,
+                                    },
+                                  ]}
+                                  onPress={() =>
+                                    setTicketExpandido(
+                                      esTicketExpandido ? null : venta.id_venta,
+                                    )
+                                  }
+                                  activeOpacity={0.7}
+                                >
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={styles.ticketTitle}>
+                                      Ticket #
+                                      {venta.numero_ticket || venta.id_venta}
+                                    </Text>
+                                    <Text style={styles.ticketSub}>
+                                      {fechaCorta} -{" "}
+                                      {venta.cliente || "Consumidor Final"}
+                                    </Text>
+                                  </View>
+                                  <View
+                                    style={{
+                                      flexDirection: "row",
+                                      alignItems: "center",
+                                      gap: 10,
+                                    }}
+                                  >
+                                    <View style={{ alignItems: "flex-end" }}>
+                                      <Text style={styles.ticketTotal}>
+                                        ${" "}
+                                        {Number(venta.total).toLocaleString(
+                                          "es-AR",
+                                          {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          },
+                                        )}
+                                      </Text>
+                                      <Text style={styles.ticketVendedor}>
+                                        Por:{" "}
+                                        {venta.usuario?.nombre_usuario ||
+                                          "Desconocido"}
+                                      </Text>
+                                    </View>
+                                    <Text
+                                      style={{ fontSize: 16, color: "#94a3b8" }}
+                                    >
+                                      {esTicketExpandido ? "▲" : "▼"}
+                                    </Text>
+                                  </View>
+                                </TouchableOpacity>
+
+                                {esTicketExpandido && (
+                                  <View style={styles.ticketDetalleContainer}>
+                                    {venta.detalle_venta &&
+                                    venta.detalle_venta.length > 0 ? (
+                                      venta.detalle_venta.map(
+                                        (det: any, idx: number) => (
+                                          <View
+                                            key={idx}
+                                            style={styles.ticketDetalleFila}
+                                          >
+                                            <Text
+                                              style={styles.ticketDetalleCant}
+                                            >
+                                              {det.cantidad}x
+                                            </Text>
+                                            <Text
+                                              style={styles.ticketDetalleProd}
+                                            >
+                                              {det.producto?.nombre_producto ||
+                                                "Producto Eliminado"}
+                                            </Text>
+                                          </View>
+                                        ),
+                                      )
+                                    ) : (
+                                      <Text style={styles.ticketDetalleVacio}>
+                                        No hay detalles registrados para este
+                                        ticket.
+                                      </Text>
+                                    )}
+                                  </View>
+                                )}
+                              </View>
+                            );
+                          })
+                        )}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
           </View>
         </View>
       </View>
@@ -886,6 +1140,10 @@ export default function ReportesScreen() {
 
   const renderTabRentabilidad = () => {
     const isWeb = Platform.OS === "web";
+
+    const potNum = Number(resumenRentabilidad.gananciaPotencial) || 0;
+    const esPotencialNegativa = potNum < 0;
+
     return (
       <View style={styles.tabContent}>
         <View
@@ -916,16 +1174,37 @@ export default function ReportesScreen() {
               })}
             </Text>
           </View>
-          <View style={[styles.cardPotencial, { flex: 1, minWidth: 200 }]}>
-            <Text style={[styles.cardTitulo, { color: "#15803d" }]}>
+
+          <View
+            style={[
+              styles.cardPotencial,
+              {
+                flex: 1,
+                minWidth: 200,
+                backgroundColor: esPotencialNegativa ? "#fef2f2" : "#ecfdf5",
+                borderColor: esPotencialNegativa ? "#fecaca" : "#a7f3d0",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.cardTitulo,
+                { color: esPotencialNegativa ? "#991b1b" : "#15803d" },
+              ]}
+            >
               GANANCIA POTENCIAL EN STOCK
             </Text>
-            <Text style={[styles.cardValor, { color: "#16a34a" }]}>
+            <Text
+              style={[
+                styles.cardValor,
+                { color: esPotencialNegativa ? "#dc2626" : "#16a34a" },
+              ]}
+            >
               ${" "}
-              {Number(resumenRentabilidad.gananciaPotencial).toLocaleString(
-                "es-AR",
-                { minimumFractionDigits: 2, maximumFractionDigits: 2 },
-              )}
+              {potNum.toLocaleString("es-AR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </Text>
           </View>
         </View>
@@ -1317,12 +1596,29 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
     marginBottom: 20,
   },
+  filterHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   filterTitle: {
     fontSize: 14,
     fontWeight: "bold",
     color: "#475569",
-    marginBottom: 12,
     textTransform: "uppercase",
+  },
+  btnFiltroRapido: {
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  txtFiltroRapido: {
+    fontSize: 13,
+    color: "#475569",
+    fontWeight: "600",
   },
   labelInput: {
     fontSize: 13,
@@ -1421,7 +1717,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     padding: 12,
     borderRadius: 8,
-    marginBottom: 8,
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
@@ -1434,6 +1729,39 @@ const styles = StyleSheet.create({
   ticketSub: { fontSize: 13, color: "#64748b" },
   ticketTotal: { fontSize: 15, fontWeight: "bold", color: "#16a34a" },
   ticketVendedor: { fontSize: 11, color: "#94a3b8", marginTop: 2 },
+
+  ticketDetalleContainer: {
+    backgroundColor: "#f8fafc",
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: "#e2e8f0",
+    padding: 12,
+    marginTop: 0,
+  },
+  ticketDetalleFila: {
+    flexDirection: "row",
+    marginBottom: 6,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  ticketDetalleCant: {
+    width: 35,
+    fontWeight: "bold",
+    color: "#475569",
+  },
+  ticketDetalleProd: {
+    flex: 1,
+    color: "#334155",
+    fontWeight: "500",
+  },
+  ticketDetalleVacio: {
+    fontStyle: "italic",
+    color: "#94a3b8",
+    fontSize: 13,
+  },
 
   badgeOk: {
     backgroundColor: "#d1fae5",

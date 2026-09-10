@@ -158,6 +158,7 @@ export const procesarVenta = async (
 export const crearNuevoRevendedor = async (
   nombre_usuario: string,
   rol: "Revendedor" | "Socio" | "Camioneta",
+  descuento: number,
   bonificacion: number,
   id_empresa: number,
   permite_devolucion: boolean,
@@ -167,6 +168,7 @@ export const crearNuevoRevendedor = async (
       id_empresa: id_empresa,
       nombre_usuario: nombre_usuario,
       rol: rol,
+      descuento: descuento > 0 ? descuento : null,
       bonificacion: bonificacion > 0 ? bonificacion : null,
       permite_devolucion: permite_devolucion,
     });
@@ -182,6 +184,7 @@ export const editarRevendedor = async (
   id_usuario: number,
   nombre_usuario: string,
   rol: string,
+  descuento: number,
   bonificacion: number,
   permite_devolucion: boolean,
 ): Promise<boolean> => {
@@ -191,6 +194,7 @@ export const editarRevendedor = async (
       .update({
         nombre_usuario,
         rol,
+        descuento: descuento > 0 ? descuento : null,
         bonificacion: bonificacion > 0 ? bonificacion : null,
         permite_devolucion,
       })

@@ -164,7 +164,7 @@ export const obtenerHistorialGraficos = async (id_empresa: number) => {
     const { data, error } = await supabase
       .from("venta")
       .select(
-        `id_venta, numero_ticket, total, fecha_venta, cliente, estado, usuario(nombre_usuario)`,
+        `id_venta, numero_ticket, total, fecha_venta, cliente, estado, usuario(nombre_usuario), detalle_venta(cantidad, producto(nombre_producto))`,
       )
       .eq("id_empresa", id_empresa)
       .neq("estado", "Cancelado")
@@ -229,7 +229,6 @@ export const obtenerProyeccionesYRentabilidad = async (id_empresa: number) => {
         const meses = Math.round(stock / promMensual);
         mesesRestantes = `${meses} meses`;
 
-        // 1 mes o menos es critico entre 1 y 3 meses es ok y mas de 3 es superavit
         if (meses <= 1 || prod.alerta_proyeccion) {
           estado = "Crítico";
         } else if (meses <= 3) {

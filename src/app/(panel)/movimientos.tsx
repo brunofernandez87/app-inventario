@@ -1,15 +1,17 @@
 import { useEmpresa } from "@/context/empresaContext";
+import { getMedidas } from "@/service/medida";
 import {
   obtenerHistorialMovimientos,
   registrarMovimientoManual,
 } from "@/service/movimiento_stock";
+import { notificaciones } from "@/service/notificaciones";
 import { obtenerProductosParaAsignar } from "@/service/stock_revendedor";
+import { Medida } from "@/types/types";
 import { BlurView } from "expo-blur";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Modal,
   Platform,
@@ -29,6 +31,7 @@ export default function MovimientosScreen() {
   const [loading, setLoading] = useState(true);
   const [movimientos, setMovimientos] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
+  const [medidas, setMedidas] = useState<Medida[]>([]);
   const [busqueda, setBusqueda] = useState("");
 
   const [filtroTipo, setFiltroTipo] = useState("Todos");
@@ -46,12 +49,14 @@ export default function MovimientosScreen() {
   const cargarDatos = async () => {
     if (!empresa) return;
     setLoading(true);
-    const [dataMovs, dataProds] = await Promise.all([
+    const [dataMovs, dataProds, dataMeds] = await Promise.all([
       obtenerHistorialMovimientos(empresa.id_empresa),
       obtenerProductosParaAsignar(empresa.id_empresa),
+      getMedidas(empresa.id_empresa),
     ]);
     setMovimientos(dataMovs);
     setProductos(dataProds);
+    setMedidas(dataMeds);
     setLoading(false);
   };
 
@@ -60,6 +65,23 @@ export default function MovimientosScreen() {
       cargarDatos();
     }, [empresa]),
   );
+
+  const validarDecimales = (cantidad: number, id_producto: number) => {
+    const producto = productos.find((p) => p.id_producto === id_producto);
+    if (!producto) return true;
+
+    const medida = medidas.find((m) => m.id_medida === producto.id_medida);
+    if (!medida) return true;
+
+    if (!medida.permite_decimales && !Number.isInteger(cantidad)) {
+      notificaciones.error(
+        "Atención",
+        `El producto "${producto.nombre_producto}" se mide en ${medida.nombre_tipo}, no podés ingresar decimales.`,
+      );
+      return false;
+    }
+    return true;
+  };
 
   const abrirModalRegistro = (tipo: "ENTRADA" | "SALIDA") => {
     setTipoRegistro(tipo);
@@ -71,16 +93,29 @@ export default function MovimientosScreen() {
 
   const confirmarRegistro = async () => {
     if (!empresa) return;
-    const cant = parseFloat(regCantidad);
-    if (!regIdProducto)
-      return Alert.alert("Atención", "Seleccioná un producto.");
-    if (isNaN(cant) || cant <= 0)
-      return Alert.alert("Atención", "Ingresá una cantidad válida mayor a 0.");
-    if (regMotivo.trim() === "")
-      return Alert.alert(
+
+    const cant = parseFloat(regCantidad.replace(",", "."));
+
+    if (!regIdProducto) {
+      notificaciones.error("Atención", "Seleccioná un producto.");
+      return;
+    }
+    if (isNaN(cant) || cant <= 0) {
+      notificaciones.error(
         "Atención",
-        "Por favor ingresá un motivo (ej: Remito de venta, Ajuste, etc).",
+        "Ingresá una cantidad válida mayor a 0.",
       );
+      return;
+    }
+    if (regMotivo.trim() === "") {
+      notificaciones.error(
+        "Atención",
+        "Por favor ingresá un motivo (ej: Remito de venta).",
+      );
+      return;
+    }
+
+    if (!validarDecimales(cant, regIdProducto)) return;
 
     setLoading(true);
     const resultado = await registrarMovimientoManual(
@@ -93,9 +128,13 @@ export default function MovimientosScreen() {
 
     if (resultado.exito) {
       setModalRegistroVisible(false);
+      notificaciones.exito(
+        "¡Listo!",
+        "El movimiento se registró correctamente.",
+      );
       await cargarDatos();
     } else {
-      Alert.alert("Error", resultado.error);
+      notificaciones.error("Error", resultado.error || "Ocurrió un problema.");
       setLoading(false);
     }
   };
@@ -183,7 +222,6 @@ export default function MovimientosScreen() {
       item.producto?.nombre_producto || "Producto Eliminado";
     const codigoProducto = item.producto?.codigo_barras || "S/C";
 
-    // FORMATEO DE CANTIDADES: pone punto en miles, y permite decimales si hay
     const cantNumerica = Number(item.cantidad) || 0;
     const cantFormateadaStr = cantNumerica.toLocaleString("es-AR", {
       maximumFractionDigits: 2,
@@ -536,7 +574,6 @@ export default function MovimientosScreen() {
                     setModalSelectorVisible(false);
                   }}
                 >
-                  {/* FORMATEO DE STOCK EN LA LISTA DESPLEGABLE */}
                   <Text style={styles.selectorItemTxt}>
                     {item.nombre_producto} (Stock actual:{" "}
                     {Number(item.stock_unidades || 0).toLocaleString("es-AR", {
