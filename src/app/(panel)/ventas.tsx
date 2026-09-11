@@ -31,12 +31,12 @@ export default function Venta() {
   const [usuario, setUsuario] = useState("Todos");
   const [ordenar, setOrdenar] = useState("fecha_venta");
   const [asc, setAsc] = useState(false);
-  const [fechaInicio, setFechaInicio] = useState(
-    new Date().toISOString().split("T")[0],
-  );
-  const [fechaFin, setFechaFin] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const hoy = new Date();
+  const hoyString = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+  const [fechaInicio, setFechaInicio] = useState(hoyString);
+  const [fechaFin, setFechaFin] = useState(hoyString);
+  const [fechaInicioFiltro, setFechaInicioFiltro] = useState(hoyString);
+  const [fechaFinFiltro, setFechaFinFiltro] = useState(hoyString);
   const listaCliente = [
     { label: "Todos los clientes", value: "Todos" },
     ...Array.from(new Set(listaVenta.map((v) => v.cliente)))
@@ -63,17 +63,27 @@ export default function Venta() {
   ];
   useEffect(() => {
     if (empresa?.fecha_creacion) {
-      setFechaInicio(String(empresa.fecha_creacion).substring(0, 10));
+      const fechaCreacionStr = String(empresa.fecha_creacion);
+      if (fechaCreacionStr.includes("-")) {
+        const fechaLimpia = fechaCreacionStr.substring(0, 10);
+        setFechaInicio(fechaLimpia);
+        setFechaInicioFiltro(fechaLimpia);
+      } else {
+        setFechaInicio("2000-01-01");
+        setFechaInicioFiltro("2000-01-01");
+      }
     }
   }, [empresa]);
   useEffect(() => {
     let resultado = [...listaVenta];
     if (fechaInicio && fechaFin) {
-      const inicio = new Date(`${fechaInicio}T00:00:00`).getTime();
-      const fin = new Date(`${fechaFin}T23:59:59`).getTime();
       resultado = resultado.filter((v) => {
-        const fechaVenta = new Date(v.fecha_venta).getTime();
-        return fechaVenta >= inicio && fechaVenta <= fin;
+        const fecha = new Date(v.fecha_venta);
+        const anio = fecha.getFullYear();
+        const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+        const dia = String(fecha.getDate()).padStart(2, "0");
+        const fechaVentaStr = `${anio}-${mes}-${dia}`;
+        return fechaVentaStr >= fechaInicio && fechaVentaStr <= fechaFin;
       });
     }
     if (cliente != "Todos") {
@@ -107,7 +117,15 @@ export default function Venta() {
       return resultado2 - resultado1;
     });
     setListaFiltrada(resultado);
-  }, [listaVenta, cliente, usuario, ordenar, asc, fechaInicio, fechaFin]);
+  }, [
+    listaVenta,
+    cliente,
+    usuario,
+    ordenar,
+    asc,
+    fechaInicioFiltro,
+    fechaFinFiltro,
+  ]);
   const manejarOrden = (columna: string) => {
     if (ordenar === columna) {
       setAsc(!asc);
@@ -210,97 +228,119 @@ export default function Venta() {
         style={{ flex: 1, flexDirection: esPC ? "row" : "column", gap: 20 }}
       >
         <View style={{ flex: esPC ? 1.2 : 1 }}>
+          <View
+            style={[
+              styles.contenedorFiltros,
+              {
+                flexDirection: width < 768 ? "column" : "row",
+                alignItems: "flex-end",
+              },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 10,
+                flex: width >= 768 ? 1.5 : 1,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.textoFecha}>Fecha inicio</Text>
+                <input
+                  style={{
+                    height: 45,
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    padding: "0 12px",
+                    width: "100%",
+                    boxSizing: "border-box",
+                  }}
+                  placeholder="DD/MM/YYYY"
+                  value={fechaInicio}
+                  type="date"
+                  onChange={(e) => {
+                    setFechaInicio(e.target.value);
+                  }}
+                  maxLength={10}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.textoFecha}>Fecha fin</Text>
+                <input
+                  style={{
+                    height: 45,
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    padding: "0 12px",
+                    width: "100%",
+                    boxSizing: "border-box",
+                  }}
+                  placeholder="DD/MM/YYYY"
+                  value={String(fechaFin)}
+                  type="date"
+                  onChange={(e) => {
+                    const fecha = new Date(e.target.value);
+                    setFechaFin(fecha);
+                  }}
+                  maxLength={10}
+                />
+              </View>
+              <View style={{ justifyContent: "flex-end" }}>
+                <Pressable
+                  style={({ pressed }) => [
+                    {
+                      height: 45,
+                      backgroundColor: "#2563eb",
+                      justifyContent: "center",
+                      paddingHorizontal: 15,
+                      borderRadius: 8,
+                    },
+                    pressed && { opacity: 0.8 },
+                  ]}
+                  onPress={() => {
+                    setFechaInicioFiltro(fechaInicio);
+                    setFechaFinFiltro(fechaFin);
+                  }}
+                >
+                  <Text style={{ color: "white", fontWeight: "bold" }}>
+                    Buscar
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+            <Dropdown
+              style={[styles.dropdown, width >= 768 && { flex: 1 }]}
+              data={listaCliente}
+              search={true}
+              searchPlaceholder="Escribi el nombre del cliente..."
+              labelField="label"
+              valueField="value"
+              placeholder="seleccionar cliente"
+              value={cliente}
+              onChange={(item) => {
+                setCliente(item.value);
+              }}
+            />
+            <Dropdown
+              style={[styles.dropdown, width >= 768 && { flex: 1 }]}
+              data={listaUsuarios}
+              search={true}
+              searchPlaceholder="Escribi el nombre del usuario..."
+              labelField="label"
+              valueField="value"
+              placeholder="seleccionar usuario"
+              value={usuario}
+              onChange={(item) => {
+                setUsuario(item.value);
+              }}
+            />
+          </View>
           {cargando ? (
             <Text style={styles.textoMensaje}>Cargando...</Text>
           ) : listaFiltrada.length === 0 ? (
             <Text style={styles.textoMensaje}>No hay ventas registradas.</Text>
           ) : (
             <View style={styles.contenedorTabla}>
-              <View
-                style={[
-                  styles.contenedorFiltros,
-                  {
-                    flexDirection: width < 768 ? "column" : "row",
-                    alignItems: "flex-end",
-                  },
-                ]}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    gap: 10,
-                    flex: width >= 768 ? 1.5 : 1,
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.textoFecha}>Fecha inicio</Text>
-                    <input
-                      style={{
-                        height: 45,
-                        borderRadius: 8,
-                        border: "1px solid #cbd5e1",
-                        padding: "0 12px",
-                        width: "100%",
-                        boxSizing: "border-box",
-                      }}
-                      placeholder="DD/MM/YYYY"
-                      value={fechaInicio}
-                      type="date"
-                      onChange={(e) => {
-                        setFechaInicio(e.target.value);
-                      }}
-                      maxLength={10}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.textoFecha}>Fecha fin</Text>
-                    <input
-                      style={{
-                        height: 45,
-                        borderRadius: 8,
-                        border: "1px solid #cbd5e1",
-                        padding: "0 12px",
-                        width: "100%",
-                        boxSizing: "border-box",
-                      }}
-                      placeholder="DD/MM/YYYY"
-                      value={String(fechaFin)}
-                      type="date"
-                      onChange={(e) => {
-                        const fecha = new Date(e.target.value);
-                        setFechaFin(fecha);
-                      }}
-                      maxLength={10}
-                    />
-                  </View>
-                </View>
-                <Dropdown
-                  style={[styles.dropdown, width >= 768 && { flex: 1 }]}
-                  data={listaCliente}
-                  search={true}
-                  searchPlaceholder="Escribi el nombre del cliente..."
-                  labelField="label"
-                  valueField="value"
-                  placeholder="seleccionar cliente"
-                  value={cliente}
-                  onChange={(item) => {
-                    setCliente(item.value);
-                  }}
-                />
-                <Dropdown
-                  style={[styles.dropdown, width >= 768 && { flex: 1 }]}
-                  data={listaUsuarios}
-                  search={true}
-                  searchPlaceholder="Escribi el nombre del usuario..."
-                  labelField="label"
-                  valueField="value"
-                  placeholder="seleccionar usuario"
-                  value={usuario}
-                  onChange={(item) => {
-                    setUsuario(item.value);
-                  }}
-                />
-              </View>
               <ScrollView horizontal={true} style={{ flex: 1 }}>
                 <View style={{ minWidth: 800, width: "100%" }}>
                   <View style={styles.encabezadoRow}>
