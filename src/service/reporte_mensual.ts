@@ -164,7 +164,7 @@ export const obtenerHistorialGraficos = async (id_empresa: number) => {
     const { data, error } = await supabase
       .from("venta")
       .select(
-        `id_venta, numero_ticket, total, fecha_venta, cliente, estado, usuario(nombre_usuario), detalle_venta(cantidad, producto(nombre_producto))`,
+        `id_venta, numero_ticket, total, fecha_venta, cliente, estado, usuario(nombre_usuario), detalle_venta(cantidad, producto(nombre_producto, precio_venta))`,
       )
       .eq("id_empresa", id_empresa)
       .neq("estado", "Cancelado")

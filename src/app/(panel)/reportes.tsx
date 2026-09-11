@@ -972,6 +972,17 @@ export default function ReportesScreen() {
                                               {det.producto?.nombre_producto ||
                                                 "Producto Eliminado"}
                                             </Text>
+                                            <Text
+                                              style={styles.ticketDetallePrecio}
+                                            >
+                                              ${" "}
+                                              {Number(
+                                                det.producto?.precio_venta || 0,
+                                              ).toLocaleString("es-AR", {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                              })}
+                                            </Text>
                                           </View>
                                         ),
                                       )
@@ -1742,6 +1753,7 @@ const styles = StyleSheet.create({
   },
   ticketDetalleFila: {
     flexDirection: "row",
+    alignItems: "center",
     marginBottom: 6,
     paddingBottom: 6,
     borderBottomWidth: 1,
@@ -1756,6 +1768,11 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#334155",
     fontWeight: "500",
+  },
+  ticketDetallePrecio: {
+    fontWeight: "bold",
+    color: "#007BFF",
+    fontSize: 13,
   },
   ticketDetalleVacio: {
     fontStyle: "italic",
