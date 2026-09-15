@@ -1,3 +1,4 @@
+import { imprimirPresupuesto } from "@/components/pdf/presupuesto";
 import { useAuth } from "@/context/authContext";
 import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
@@ -215,7 +216,38 @@ export default function Carrito() {
     });
     const detalle = await crearDetalleVenta(nuevoDetalle);
     if (detalle) {
+      const listaCompra = listaCarrito.map((p) => {
+        let paquete_cerrado = false;
+        if (p.cantidad == p.unidades_por_paquete) {
+          paquete_cerrado = true;
+        } else {
+          paquete_cerrado = false;
+        }
+        const medida = listaMedida.find((m) => m.id_medida === p.id_medida);
+        return {
+          producto: {
+            codigo_alfanumerico: p.codigo_alfanumerico,
+            nombre_producto: p.nombre_producto,
+            medida: {
+              nombre_tipo: medida ? medida.nombre_tipo : "unidad",
+            },
+          },
+
+          cantidad: p.cantidad,
+          es_paquete_cerrado: paquete_cerrado,
+          bonificacion_paquete: p.bonificacion_paquete,
+          precio_unitario: p.precio_venta,
+          subtotal: p.precio_venta * p.cantidad,
+        };
+      });
       await fetchVenta();
+      await imprimirPresupuesto(
+        listaCompra,
+        empresa,
+        "juan",
+        totalDescuento,
+        Number(descuento),
+      );
       notificaciones.exito("resultado compra", "Venta realizada con exito");
       vaciarCarrito();
     } else {
