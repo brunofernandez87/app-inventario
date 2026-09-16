@@ -19,12 +19,16 @@ import {
   View,
 } from "react-native";
 import { TextInput } from "react-native-gesture-handler";
+import Confirmacion from "../modalConfirmacion";
 
 export default function Carrito() {
   const { width } = useWindowDimensions();
   const [listaMedida, setListamedida] = useState([]);
   const [descuento, setDescuento] = useState("0");
   const [porcentaje, setPorcentaje] = useState(false);
+  const [modalImprimir, setModalImprimir] = useState(false);
+  const [datosImpresion, setDatosImpresion] = useState<any>(null);
+  const [confirmacion, setConfirmacion] = useState(false);
   const { listaCarrito, setListaCarrito, vaciarCarrito } = useListaCarrito();
   const { fetchVenta } = useListaVenta();
   const celular = width < 768;
@@ -240,16 +244,16 @@ export default function Carrito() {
           subtotal: p.precio_venta * p.cantidad,
         };
       });
-      await fetchVenta();
-      await imprimirPresupuesto(
+      setDatosImpresion({
         listaCompra,
-        empresa,
-        "juan",
-        totalDescuento,
-        Number(descuento),
-      );
+        total: totalDescuento,
+        descuentoTotal: Number(descuento),
+      });
+      await fetchVenta();
       notificaciones.exito("resultado compra", "Venta realizada con exito");
       vaciarCarrito();
+      setDescuento("0");
+      setModalImprimir(true);
     } else {
       return notificaciones.error(
         "Problema con la compra",
@@ -257,7 +261,24 @@ export default function Carrito() {
       );
     }
   };
-
+  const imprimir = async () => {
+    setModalImprimir(false);
+    if (datosImpresion) {
+      const { listaCompra, descuentoTotal, total } = datosImpresion;
+      await imprimirPresupuesto(
+        listaCompra,
+        empresa,
+        "juan",
+        total,
+        descuentoTotal,
+      );
+    }
+    setDatosImpresion(null);
+  };
+  const cancelarImpresion = () => {
+    setModalImprimir(false);
+    setDatosImpresion(null);
+  };
   return (
     <View style={{ flex: 1, padding: 20 }}>
       <Text style={styles.tituloHeader}>Carrito</Text>
@@ -352,6 +373,13 @@ export default function Carrito() {
           </View>
         )}
       </View>
+      <Confirmacion
+        visible={modalImprimir}
+        titulo="Imprimir presupuesto"
+        texto="desea imprimir el presupuesto"
+        onConfirm={imprimir}
+        onCancel={cancelarImpresion}
+      />
     </View>
   );
 }
