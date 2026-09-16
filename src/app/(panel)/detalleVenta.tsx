@@ -137,17 +137,27 @@ export default function VentaDetalle({
               windowSize={5}
             />
             <View style={styles.contenedorTotales}>
-              <View style={styles.filaTotalColumna}>
-                <View style={{ flex: 8 }} />
-                <View style={{ flex: 2 }}>
-                  <Text style={styles.etiquetaTotalColumna}>
-                    descuento por dueño:
-                  </Text>
+              {descuento > 0 && (
+                <View style={styles.filaTotalColumna}>
+                  <View style={{ flex: 8 }} />
+                  <View style={{ flex: 2 }}>
+                    <Text style={styles.etiquetaTotalColumna}>
+                      descuento por dueño:
+                    </Text>
+                  </View>
+                  <View style={{ flex: 2 }}>
+                    {descuento > 0 && descuento <= 1 ? (
+                      <Text style={styles.valorDescuentoColumna}>
+                        {(descuento * 100).toFixed(0)}%
+                      </Text>
+                    ) : (
+                      <Text style={styles.valorDescuentoColumna}>
+                        ${descuento.toFixed(2)}
+                      </Text>
+                    )}
+                  </View>
                 </View>
-                <View style={{ flex: 2 }}>
-                  <Text style={styles.valorDescuentoColumna}>{descuento}%</Text>
-                </View>
-              </View>
+              )}
               <View style={styles.filaTotalColumna}>
                 <View style={{ flex: 8 }} />
                 <View style={{ flex: 2 }}>

@@ -13,6 +13,17 @@ export const imprimirPresupuesto = async (
   totalFinal: number,
   descuento_admin: number,
 ) => {
+  const textoDescuento =
+    descuento_admin > 0 && descuento_admin <= 1
+      ? `${(descuento_admin * 100).toFixed(0)}%` // Si es 0.5, muestra 50%
+      : `$${descuento_admin.toFixed(2)}`; // Si es 500, muestra $500.00
+  const filaDescuentoHTML =
+    descuento_admin > 0
+      ? `<tr class="fila-descuento"> 
+         <td colspan="7" class="total-label"> Descuento por dueño:</td> 
+         <td>- ${textoDescuento}</td>
+       </tr>`
+      : "";
   const filasHTML = lista
     .map((item) => {
       const codigo = item.producto.codigo_alfanumerico;
@@ -86,10 +97,7 @@ export const imprimirPresupuesto = async (
                 ${filasHTML}
               </tbody>
                 <tfoot>
-                      <tr class="fila-descuento"> 
-                      <td colspan="7" class="total-label"> descuento por dueño:</td> 
-                      <td>- $${descuento_admin.toFixed(2)}</td>
-                      </tr>
+                ${filaDescuentoHTML}
                 <tr class="fila-total">
                   <td colspan="7" class="total-label">TOTAL:</td>
                   <td>$${totalFinal.toFixed(2)}</td>

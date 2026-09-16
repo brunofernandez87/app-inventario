@@ -187,7 +187,11 @@ export default function Carrito() {
     }
   };
   const comprar = async () => {
+    let descuentoDB = Number(descuento);
     const totalDescuento = total();
+    if (porcentaje) {
+      descuentoDB = Number(descuento) / 100;
+    }
     const nuevaVenta: Omit<Venta, "id_venta" | "fecha_venta"> = {
       id_empresa: Number(empresa?.id_empresa),
       id_usuario: Number(usuario?.id_usuario),
@@ -216,6 +220,7 @@ export default function Carrito() {
         es_paquete_cerrado: paquete_cerrado,
         precio_unitario: p.precio_venta,
         subtotal: p.precio_venta * p.cantidad,
+        descuento_admin: descuentoDB,
       };
     });
     const detalle = await crearDetalleVenta(nuevoDetalle);
@@ -247,7 +252,7 @@ export default function Carrito() {
       setDatosImpresion({
         listaCompra,
         total: totalDescuento,
-        descuentoTotal: Number(descuento),
+        descuentoTotal: Number(descuentoDB),
       });
       await fetchVenta();
       notificaciones.exito("resultado compra", "Venta realizada con exito");
