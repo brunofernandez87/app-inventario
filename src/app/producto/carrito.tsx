@@ -28,7 +28,6 @@ export default function Carrito() {
   const [porcentaje, setPorcentaje] = useState(false);
   const [modalImprimir, setModalImprimir] = useState(false);
   const [datosImpresion, setDatosImpresion] = useState<any>(null);
-  const [confirmacion, setConfirmacion] = useState(false);
   const { listaCarrito, setListaCarrito, vaciarCarrito } = useListaCarrito();
   const { fetchVenta } = useListaVenta();
   const celular = width < 768;
