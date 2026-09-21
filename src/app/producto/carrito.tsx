@@ -2,10 +2,12 @@ import { imprimirPresupuesto } from "@/components/pdf/presupuesto";
 import { useAuth } from "@/context/authContext";
 import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
+import { useListaProducto } from "@/context/listaProductoContext";
 import { useListaVenta } from "@/context/listaVentaContext";
 import { crearDetalleVenta } from "@/service/detalle_venta";
 import { getMedidas } from "@/service/medida";
 import { notificaciones } from "@/service/notificaciones";
+import { modificarCantidad } from "@/service/producto";
 import { crearVenta } from "@/service/venta";
 import { Venta } from "@/types/types";
 import { useCallback, useEffect, useState } from "react";
@@ -30,6 +32,7 @@ export default function Carrito() {
   const [datosImpresion, setDatosImpresion] = useState<any>(null);
   const { listaCarrito, setListaCarrito, vaciarCarrito } = useListaCarrito();
   const { fetchVenta } = useListaVenta();
+  const { fetchProducts } = useListaProducto();
   const celular = width < 768;
   const totalCompra = listaCarrito.reduce((acumulador, item) => {
     const cantidad = item.cantidad || 1;
@@ -224,6 +227,15 @@ export default function Carrito() {
     });
     const detalle = await crearDetalleVenta(nuevoDetalle);
     if (detalle) {
+      const descontarStock = listaCarrito.map((p) => {
+        return modificarCantidad(
+          p.id_producto,
+          p.cantidad,
+          Number(empresa?.id_empresa),
+        );
+      });
+      // ejecuta todas las promesas asincronas al mismo tiempo evitando que se ejecuten 1 por 1 y tarden mas
+      await Promise.all(descontarStock);
       const listaCompra = listaCarrito.map((p) => {
         let paquete_cerrado = false;
         if (p.cantidad == p.unidades_por_paquete) {
@@ -278,10 +290,12 @@ export default function Carrito() {
       );
     }
     setDatosImpresion(null);
+    await fetchProducts();
   };
-  const cancelarImpresion = () => {
+  const cancelarImpresion = async () => {
     setModalImprimir(false);
     setDatosImpresion(null);
+    await fetchProducts();
   };
   return (
     <View style={{ flex: 1, padding: 20 }}>
