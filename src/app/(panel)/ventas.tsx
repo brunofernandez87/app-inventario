@@ -39,7 +39,7 @@ export default function Venta() {
   const [fechaFinFiltro, setFechaFinFiltro] = useState(hoyString);
   const listaCliente = [
     { label: "Todos los clientes", value: "Todos" },
-    ...Array.from(new Set(listaVenta.map((v) => v.cliente)))
+    ...Array.from(new Set(listaVenta.map((v) => v.clientes?.nombre)))
       .filter(
         (cliente) =>
           cliente !== null && cliente !== undefined && cliente !== "",
@@ -87,7 +87,7 @@ export default function Venta() {
       });
     }
     if (cliente != "Todos") {
-      resultado = resultado.filter((v) => v.cliente === cliente);
+      resultado = resultado.filter((v) => v.clientes?.nombre === cliente);
     }
     if (usuario != "Todos") {
       resultado = resultado.filter(
@@ -184,7 +184,7 @@ export default function Venta() {
               style={[styles.textoPrincipal, { fontSize: 14 }]}
               numberOfLines={1}
             >
-              {item.cliente || "Cliente"}
+              {item.clientes?.nombre || "Cliente"}
             </Text>
           </View>
           {/* Usuario */}

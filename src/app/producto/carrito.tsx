@@ -199,7 +199,7 @@ export default function Carrito() {
       id_usuario: Number(usuario?.id_usuario),
       total: Number(totalDescuento),
       estado: "finalizado",
-      cliente: "juan",
+      id_cliente: 1,
     };
     const venta = await crearVenta(nuevaVenta);
     if (!venta) {

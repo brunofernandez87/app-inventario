@@ -5,7 +5,7 @@ export const obtenerDetallesPorVenta = async (id_venta: number) => {
     const { data, error } = await supabase
       .from("detalle_venta")
       .select(
-        "*, producto(nombre_producto,codigo_alfanumerico,bonificacion_paquete,id_medida, medida(nombre_tipo)), venta(cliente,total)",
+        "*, producto(nombre_producto,codigo_alfanumerico,bonificacion_paquete,id_medida, medida(nombre_tipo)), venta(total,id_cliente,clientes(nombre))",
       )
       .eq("id_venta", id_venta);
     if (error) {
