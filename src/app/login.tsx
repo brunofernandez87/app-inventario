@@ -54,6 +54,7 @@ export default function PantallaLogin() {
         <TextInput
           style={styles.input}
           placeholder="Correo electrónico"
+          placeholderTextColor="#000000"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -65,6 +66,7 @@ export default function PantallaLogin() {
         <TextInput
           style={styles.input}
           placeholder="Contraseña"
+          placeholderTextColor="#000000"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -128,7 +130,7 @@ const styles = StyleSheet.create({
 
   titulo: { fontSize: 28, fontWeight: "bold", color: "#333", marginBottom: 5, textAlign: "center" },
   subtitulo: { fontSize: 14, color: "#666", marginBottom: 25, textAlign: "center" },
-  input: { backgroundColor: "#F9FAFB", borderWidth: 1, borderColor: "#E5E7EB", padding: 15, borderRadius: 10, marginBottom: 15, fontSize: 16 },
+  input: { backgroundColor: "#F9FAFB", color: "black", borderWidth: 1, borderColor: "#E5E7EB", padding: 15, borderRadius: 10, marginBottom: 15, fontSize: 16 },
   boton: { backgroundColor: "#007BFF", padding: 15, borderRadius: 10, alignItems: "center", marginTop: 5 },
   textoBoton: { color: "white", fontSize: 16, fontWeight: "bold" },
 
