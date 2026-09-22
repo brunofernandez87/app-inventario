@@ -13,6 +13,11 @@ Notifications.setNotificationHandler({
 
 export async function obtenerTokenPushExpo(): Promise<string | null> {
   let token = null;
+  // Agregamos esta validación para evitar el error en la Web
+  if (Platform.OS === 'web') {
+    console.log('Las notificaciones push no se piden en la versión web.');
+    return null; 
+  }
 
   // 1. Android necesita un "Canal" de notificaciones
   if (Platform.OS === 'android') {
