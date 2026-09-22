@@ -22,7 +22,7 @@ export const obtenerVentasUsuario = async (id_empresa: number) => {
   try {
     const { data, error } = await supabase
       .from("venta")
-      .select("*,usuario(nombre_usuario)")
+      .select("*,usuario(nombre_usuario),clientes(nombre)")
       .eq("id_empresa", id_empresa)
       .order("fecha_venta", { ascending: false });
     if (error) {
