@@ -1,8 +1,11 @@
+import { useAuth } from "@/context/authContext";
 import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaProducto } from "@/context/listaProductoContext";
+import { supabase } from "@/database/supabase";
 import { getMedidas } from "@/service/medida";
 import { notificaciones } from "@/service/notificaciones";
+import { obtenerTokenPushExpo } from "@/service/notificacionesPush";
 import {
   eliminarProducto,
   obtenerAlertaProyeccion,
@@ -51,6 +54,37 @@ export default function ListaProductos() {
   );
   const [lista, setLista] = useState(listaProducto);
   const { empresa } = useEmpresa();
+  const { usuario } = useAuth();
+  useEffect(() => {
+    const registrarTokenEnSegundoPlano = async () => {
+      // 1. Verificamos que los IDs ya estén cargados en memoria
+      if (!usuario?.id_usuario || !empresa?.id_empresa) return;
+
+      try {
+        // 2. Pedimos el token a Expo
+        const pushToken = await obtenerTokenPushExpo();
+
+        if (pushToken) {
+          // 3. ¡Mandamos los datos directo sin hacer el SELECT previo!
+          const { error } = await supabase.rpc('registrar_push_token', {
+            p_id_usuario: usuario.id_usuario,
+            p_id_empresa: empresa.id_empresa,
+            p_token: pushToken,
+          });
+
+          if (error) {
+            console.error("❌ Error de Supabase al guardar token:", error.message);
+          } else {
+            console.log("✅ ¡Token guardado exitosamente desde Productos!");
+          }
+        }
+      } catch (error) {
+        console.error("Error general registrando token:", error);
+      }
+    };
+
+    registrarTokenEnSegundoPlano();
+  }, [usuario, empresa]);
 
   useEffect(() => {
     const buscarMedidas = async () => {
@@ -72,9 +106,9 @@ export default function ListaProductos() {
       const margen =
         item.costo_compra > 0
           ? Math.round(
-              ((item.precio_venta - item.costo_compra) / item.costo_compra) *
-                100,
-            )
+            ((item.precio_venta - item.costo_compra) / item.costo_compra) *
+            100,
+          )
           : 0;
       return (
         <Pressable
