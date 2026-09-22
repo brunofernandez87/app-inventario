@@ -147,7 +147,8 @@ export const modificarCantidad = async (
   // Usamos Math.floor para redondear hacia abajo (Ej: 13 unidades / 6 por paquete = 2 paquetes enteros)
   let nuevos_paquetes = 0;
   if (producto.stock_paquetes) {
-    nuevos_paquetes = Math.floor(unidades_nuevas / producto.stock_paquetes);
+    const calculo = unidades_nuevas / producto.stock_paquetes;
+    nuevos_paquetes = Number(calculo.toFixed(1));
   }
   const { alerta_stock, ...restoDelProducto } = producto;
   const producto_nuevo = {
