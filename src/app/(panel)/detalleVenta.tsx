@@ -40,8 +40,8 @@ export default function VentaDetalle({
   );
   const imprimirListaPDF = async () => {
     const cliente =
-      listaDetalle.length > 0 && listaDetalle[0].venta.cliente
-        ? listaDetalle[0].venta.cliente
+      listaDetalle.length > 0 && listaDetalle[0].venta.clientes?.nombre
+        ? listaDetalle[0].venta.clientes?.nombre
         : "Consumidor Final";
     await imprimirPresupuesto(listaDetalle, empresa, cliente, total, descuento);
   };
