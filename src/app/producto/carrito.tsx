@@ -1,10 +1,13 @@
+import { imprimirPresupuesto } from "@/components/pdf/presupuesto";
 import { useAuth } from "@/context/authContext";
 import { useListaCarrito } from "@/context/carritoContext";
 import { useEmpresa } from "@/context/empresaContext";
+import { useListaProducto } from "@/context/listaProductoContext";
 import { useListaVenta } from "@/context/listaVentaContext";
 import { crearDetalleVenta } from "@/service/detalle_venta";
 import { getMedidas } from "@/service/medida";
 import { notificaciones } from "@/service/notificaciones";
+import { modificarCantidad } from "@/service/producto";
 import { crearVenta } from "@/service/venta";
 import { Venta } from "@/types/types";
 import { useCallback, useEffect, useState } from "react";
@@ -18,14 +21,18 @@ import {
   View,
 } from "react-native";
 import { TextInput } from "react-native-gesture-handler";
+import Confirmacion from "../modalConfirmacion";
 
 export default function Carrito() {
   const { width } = useWindowDimensions();
   const [listaMedida, setListamedida] = useState([]);
   const [descuento, setDescuento] = useState("0");
   const [porcentaje, setPorcentaje] = useState(false);
+  const [modalImprimir, setModalImprimir] = useState(false);
+  const [datosImpresion, setDatosImpresion] = useState<any>(null);
   const { listaCarrito, setListaCarrito, vaciarCarrito } = useListaCarrito();
   const { fetchVenta } = useListaVenta();
+  const { fetchProducts } = useListaProducto();
   const celular = width < 768;
   const totalCompra = listaCarrito.reduce((acumulador, item) => {
     const cantidad = item.cantidad || 1;
@@ -182,7 +189,11 @@ export default function Carrito() {
     }
   };
   const comprar = async () => {
+    let descuentoDB = Number(descuento);
     const totalDescuento = total();
+    if (porcentaje) {
+      descuentoDB = Number(descuento) / 100;
+    }
     const nuevaVenta: Omit<Venta, "id_venta" | "fecha_venta"> = {
       id_empresa: Number(empresa?.id_empresa),
       id_usuario: Number(usuario?.id_usuario),
@@ -211,13 +222,54 @@ export default function Carrito() {
         es_paquete_cerrado: paquete_cerrado,
         precio_unitario: p.precio_venta,
         subtotal: p.precio_venta * p.cantidad,
+        descuento_admin: descuentoDB,
       };
     });
     const detalle = await crearDetalleVenta(nuevoDetalle);
     if (detalle) {
+      const descontarStock = listaCarrito.map((p) => {
+        return modificarCantidad(
+          p.id_producto,
+          p.cantidad,
+          Number(empresa?.id_empresa),
+        );
+      });
+      // ejecuta todas las promesas asincronas al mismo tiempo evitando que se ejecuten 1 por 1 y tarden mas
+      await Promise.all(descontarStock);
+      const listaCompra = listaCarrito.map((p) => {
+        let paquete_cerrado = false;
+        if (p.cantidad == p.unidades_por_paquete) {
+          paquete_cerrado = true;
+        } else {
+          paquete_cerrado = false;
+        }
+        const medida = listaMedida.find((m) => m.id_medida === p.id_medida);
+        return {
+          producto: {
+            codigo_alfanumerico: p.codigo_alfanumerico,
+            nombre_producto: p.nombre_producto,
+            medida: {
+              nombre_tipo: medida ? medida.nombre_tipo : "unidad",
+            },
+          },
+
+          cantidad: p.cantidad,
+          es_paquete_cerrado: paquete_cerrado,
+          bonificacion_paquete: p.bonificacion_paquete,
+          precio_unitario: p.precio_venta,
+          subtotal: p.precio_venta * p.cantidad,
+        };
+      });
+      setDatosImpresion({
+        listaCompra,
+        total: totalDescuento,
+        descuentoTotal: Number(descuentoDB),
+      });
       await fetchVenta();
       notificaciones.exito("resultado compra", "Venta realizada con exito");
       vaciarCarrito();
+      setDescuento("0");
+      setModalImprimir(true);
     } else {
       return notificaciones.error(
         "Problema con la compra",
@@ -225,7 +277,26 @@ export default function Carrito() {
       );
     }
   };
-
+  const imprimir = async () => {
+    setModalImprimir(false);
+    if (datosImpresion) {
+      const { listaCompra, descuentoTotal, total } = datosImpresion;
+      await imprimirPresupuesto(
+        listaCompra,
+        empresa,
+        "juan",
+        total,
+        descuentoTotal,
+      );
+    }
+    setDatosImpresion(null);
+    await fetchProducts();
+  };
+  const cancelarImpresion = async () => {
+    setModalImprimir(false);
+    setDatosImpresion(null);
+    await fetchProducts();
+  };
   return (
     <View style={{ flex: 1, padding: 20 }}>
       <Text style={styles.tituloHeader}>Carrito</Text>
@@ -320,6 +391,13 @@ export default function Carrito() {
           </View>
         )}
       </View>
+      <Confirmacion
+        visible={modalImprimir}
+        titulo="Imprimir presupuesto"
+        texto="desea imprimir el presupuesto"
+        onConfirm={imprimir}
+        onCancel={cancelarImpresion}
+      />
     </View>
   );
 }

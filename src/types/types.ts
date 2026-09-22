@@ -57,6 +57,7 @@ export interface Usuario {
   nombre_usuario: string;
   rol: enumRol;
   bonificacion?: number | null;
+  descuento?: number | null;
   fecha_creacion?: string | null;
   permite_devolucion: boolean;
 }

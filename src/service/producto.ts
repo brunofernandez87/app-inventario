@@ -135,3 +135,26 @@ export const crearProducto = async (data_producto: CreacionProducto) => {
     return null;
   }
 };
+export const modificarCantidad = async (
+  id: number,
+  cantidad: Number,
+  id_empresa: number,
+) => {
+  const producto = await obtenerProducto(id, id_empresa);
+  if (!producto) return;
+  const unidades_viejas = producto?.stock_unidades;
+  const unidades_nuevas = unidades_viejas - cantidad;
+  // Usamos Math.floor para redondear hacia abajo (Ej: 13 unidades / 6 por paquete = 2 paquetes enteros)
+  let nuevos_paquetes = 0;
+  if (producto.stock_paquetes) {
+    const calculo = unidades_nuevas / producto.stock_paquetes;
+    nuevos_paquetes = Number(calculo.toFixed(1));
+  }
+  const { alerta_stock, ...restoDelProducto } = producto;
+  const producto_nuevo = {
+    ...restoDelProducto,
+    stock_unidades: unidades_nuevas,
+    stock_paquetes: nuevos_paquetes,
+  };
+  await editarProducto(producto_nuevo, id_empresa);
+};

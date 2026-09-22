@@ -5,6 +5,7 @@ import {
   eliminarMedida,
   getMedidas,
 } from "@/service/medida";
+import { notificaciones } from "@/service/notificaciones";
 import { Medida } from "@/types/types";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -49,7 +50,10 @@ export default function GestionarMedidas({ onClose }: { onClose: () => void }) {
     setErrorVisible("");
 
     if (nombre.trim() === "" || abreviacion.trim() === "") {
-      setErrorVisible("Por favor, completá el nombre y la abreviación.");
+      notificaciones.error(
+        "Atención",
+        "Por favor, completá el nombre y la abreviación.",
+      );
       return;
     }
 
@@ -78,9 +82,11 @@ export default function GestionarMedidas({ onClose }: { onClose: () => void }) {
       setAbreviacion("");
       setPermiteDecimales(false);
       setIdEditando(null);
+      notificaciones.exito("¡Guardado!", "La medida se guardó correctamente.");
       await cargarMedidas();
     } else {
-      setErrorVisible(
+      notificaciones.error(
+        "Error",
         resultado.msj || "Error desconocido al guardar en base de datos.",
       );
     }
@@ -104,6 +110,7 @@ export default function GestionarMedidas({ onClose }: { onClose: () => void }) {
         ejecutarEliminacion(medida.id_medida);
       }
     } else {
+      // ESTE ALERT SE QUEDA porque necesitamos confirmación
       Alert.alert(
         "Eliminar",
         `¿Seguro que querés eliminar "${medida.nombre_tipo}"?`,
@@ -124,11 +131,12 @@ export default function GestionarMedidas({ onClose }: { onClose: () => void }) {
     setLoading(true);
     const resultado = await eliminarMedida(id, empresa.id_empresa);
     if (resultado.exito) {
+      notificaciones.exito("Eliminada", "La medida ha sido eliminada.");
       await cargarMedidas();
     } else {
-      setErrorVisible(
-        "No se puede eliminar. ¿Hay productos usándola? Detalle: " +
-          resultado.msj,
+      notificaciones.error(
+        "No se puede eliminar",
+        "¿Hay productos usándola? Detalle: " + resultado.msj,
       );
     }
     setLoading(false);
@@ -367,7 +375,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   btnAgregar: {
-    backgroundColor: "#93c5fd",
+    backgroundColor: "#2563eb",
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",

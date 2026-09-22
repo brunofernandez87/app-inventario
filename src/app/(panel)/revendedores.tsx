@@ -1,5 +1,6 @@
 import { useEmpresa } from "@/context/empresaContext";
 import { getMedidas } from "@/service/medida";
+import { notificaciones } from "@/service/notificaciones";
 import {
   asignarStockARevendedor,
   crearNuevoRevendedor,
@@ -118,7 +119,7 @@ export default function StockRevendedorScreen() {
     setLoading(true);
     const data = await obtenerRevendedoresYStock(empresa.id_empresa);
     const prods = await obtenerProductosParaAsignar(empresa.id_empresa);
-    const meds = await getMedidas(empresa.id_empresa); // Traemos medidas
+    const meds = await getMedidas(empresa.id_empresa);
 
     setUsuarios(data.usuarios);
     setStock(data.stock);
@@ -133,14 +134,14 @@ export default function StockRevendedorScreen() {
 
   const validarDecimales = (cantidad: number, id_producto: number) => {
     const producto = productos.find((p) => p.id_producto === id_producto);
-    if (!producto) return true; // Por las dudas
+    if (!producto) return true;
 
     const medida = medidas.find((m) => m.id_medida === producto.id_medida);
     if (!medida) return true;
     if (!medida.permite_decimales && !Number.isInteger(cantidad)) {
-      Alert.alert(
+      notificaciones.error(
         "Atención",
-        `El producto "${producto.nombre_producto}" se mide en ${medida.nombre_tipo}, no podés ingresar cantidades con coma o punto.`,
+        `El producto "${producto.nombre_producto}" se mide en ${medida.nombre_tipo}, no podés ingresar decimales.`,
       );
       return false;
     }
@@ -163,7 +164,7 @@ export default function StockRevendedorScreen() {
       cant <= 0 ||
       cant > itemSeleccionado.cantidad
     ) {
-      return Alert.alert("Error", "Cantidad inválida.");
+      return notificaciones.error("Error", "Cantidad inválida.");
     }
     if (!validarDecimales(cant, itemSeleccionado.id_producto)) return;
 
@@ -174,9 +175,11 @@ export default function StockRevendedorScreen() {
       cant,
       empresa.id_empresa,
     );
-    if (exito) await cargarDatos();
-    else {
-      Alert.alert("Error", "No se pudo registrar la venta.");
+    if (exito) {
+      notificaciones.exito("¡Vendido!", "La venta se registró correctamente.");
+      await cargarDatos();
+    } else {
+      notificaciones.error("Error", "No se pudo registrar la venta.");
       setLoading(false);
     }
   };
@@ -197,10 +200,9 @@ export default function StockRevendedorScreen() {
       cant <= 0 ||
       cant > itemSeleccionado.cantidad
     ) {
-      return Alert.alert("Error", "Cantidad inválida.");
+      return notificaciones.error("Error", "Cantidad inválida.");
     }
 
-    // VALIDACIÓN DECIMAL
     if (!validarDecimales(cant, itemSeleccionado.id_producto)) return;
 
     setModalDevolucionVisible(false);
@@ -210,9 +212,14 @@ export default function StockRevendedorScreen() {
       cant,
       empresa.id_empresa,
     );
-    if (exito) await cargarDatos();
-    else {
-      Alert.alert("Error", "No se pudo procesar la devolución.");
+    if (exito) {
+      notificaciones.exito(
+        "¡Devuelto!",
+        "El stock volvió al inventario principal.",
+      );
+      await cargarDatos();
+    } else {
+      notificaciones.error("Error", "No se pudo procesar la devolución.");
       setLoading(false);
     }
   };
@@ -229,17 +236,13 @@ export default function StockRevendedorScreen() {
   const guardarRevendedor = async (esEdicion: boolean) => {
     if (!empresa) return;
     if (revNombre.trim() === "")
-      return Alert.alert("Atención", "Tenés que escribir el nombre.");
+      return notificaciones.error("Atención", "Tenés que escribir el nombre.");
 
     const descVal = parseFloat(revDescuento);
     const bonifVal = parseFloat(revBonificacion);
 
-    let valorFinal = 0;
-    if (!isNaN(descVal) && descVal > 0) {
-      valorFinal = descVal;
-    } else if (!isNaN(bonifVal) && bonifVal > 0) {
-      valorFinal = bonifVal;
-    }
+    const d = isNaN(descVal) ? 0 : descVal;
+    const b = isNaN(bonifVal) ? 0 : bonifVal;
 
     setLoading(true);
     let exito = false;
@@ -248,14 +251,16 @@ export default function StockRevendedorScreen() {
         revId,
         revNombre,
         revRol,
-        valorFinal,
+        d,
+        b,
         revPermiteDevolucion,
       );
     } else {
       exito = await crearNuevoRevendedor(
         revNombre,
         revRol as any,
-        valorFinal,
+        d,
+        b,
         empresa.id_empresa,
         revPermiteDevolucion,
       );
@@ -265,9 +270,10 @@ export default function StockRevendedorScreen() {
       setModalNuevoRevVisible(false);
       setModalEditarRevVisible(false);
       limpiarFormRevendedor();
+      notificaciones.exito("¡Excelente!", "El revendedor se guardó con éxito.");
       await cargarDatos();
     } else {
-      Alert.alert("Error", "No se pudo guardar.");
+      notificaciones.error("Error", "No se pudo guardar.");
       setLoading(false);
     }
   };
@@ -281,7 +287,10 @@ export default function StockRevendedorScreen() {
         )
       ) {
         setLoading(true);
-        eliminarRevendedor(id, empresa.id_empresa).then(() => cargarDatos());
+        eliminarRevendedor(id, empresa.id_empresa).then(() => {
+          notificaciones.exito("Eliminado", "El revendedor ha sido eliminado.");
+          cargarDatos();
+        });
       }
     } else {
       Alert.alert(
@@ -294,9 +303,13 @@ export default function StockRevendedorScreen() {
             style: "destructive",
             onPress: () => {
               setLoading(true);
-              eliminarRevendedor(id, empresa.id_empresa).then(() =>
-                cargarDatos(),
-              );
+              eliminarRevendedor(id, empresa.id_empresa).then(() => {
+                notificaciones.exito(
+                  "Eliminado",
+                  "El revendedor ha sido eliminado.",
+                );
+                cargarDatos();
+              });
             },
           },
         ],
@@ -309,11 +322,11 @@ export default function StockRevendedorScreen() {
     const cantidadFinal = parseFloat(asignarCantidad.replace(",", "."));
 
     if (!asignarIdUsuario)
-      return Alert.alert("Atención", "Seleccioná un revendedor.");
+      return notificaciones.error("Atención", "Seleccioná un revendedor.");
     if (!asignarIdProducto)
-      return Alert.alert("Atención", "Seleccioná un producto.");
+      return notificaciones.error("Atención", "Seleccioná un producto.");
     if (isNaN(cantidadFinal) || cantidadFinal <= 0)
-      return Alert.alert("Atención", "Ingresá una cantidad válida.");
+      return notificaciones.error("Atención", "Ingresá una cantidad válida.");
     if (!validarDecimales(cantidadFinal, asignarIdProducto)) return;
 
     setLoading(true);
@@ -331,9 +344,13 @@ export default function StockRevendedorScreen() {
       setAsignarIdProducto(null);
       setAsignarCantidad("");
       setAsignarEstado("En poder");
+      notificaciones.exito("¡Asignado!", "El stock se asignó correctamente.");
       await cargarDatos();
     } else {
-      Alert.alert("No se pudo asignar", resultado.error);
+      notificaciones.error(
+        "No se pudo asignar",
+        resultado.error || "Ocurrió un error.",
+      );
       setLoading(false);
     }
   };
@@ -358,9 +375,9 @@ export default function StockRevendedorScreen() {
       hoyReal.setHours(23, 59, 59, 999);
 
       if (isNaN(dateInicio.getTime()) || isNaN(dateFin.getTime()))
-        return Alert.alert("Error", "Las fechas no son válidas.");
+        return notificaciones.error("Error", "Las fechas no son válidas.");
       if (dateInicio > dateFin)
-        return Alert.alert(
+        return notificaciones.error(
           "Error",
           "La fecha de inicio no puede ser mayor a la de fin.",
         );
@@ -426,7 +443,6 @@ export default function StockRevendedorScreen() {
             const precioVenta = s.producto?.precio_venta || 0;
             const subtotal = s.cantidad * precioVenta;
 
-            // USAMOS fecha_entrega
             const fechaStr = s.fecha_entrega
               ? new Date(s.fecha_entrega).toLocaleDateString("es-AR")
               : "-";
@@ -457,8 +473,9 @@ export default function StockRevendedorScreen() {
 
       await imprimirPDF(htmlContent);
       setModalImprimirVisible(false);
+      notificaciones.exito("¡Generado!", "El reporte PDF está listo.");
     } catch (error) {
-      Alert.alert("Error", "No se pudo generar el documento PDF.");
+      notificaciones.error("Error", "No se pudo generar el documento PDF.");
     } finally {
       setLoading(false);
     }
@@ -468,9 +485,13 @@ export default function StockRevendedorScreen() {
     const permiteDevolver =
       (usuario as any).permite_devolucion === true ||
       usuario.rol === "Camioneta";
+
     const stockAsignado = stock.filter(
       (s) => s.id_usuario === usuario.id_usuario && s.estado === "En poder",
     );
+
+    const descNum = parseFloat((usuario as any).descuento);
+    const bonifNum = parseFloat((usuario as any).bonificacion);
 
     const renderStockEnLinea = ({ item }: { item: StockRevendedor }) => (
       <View style={styles.stockCard}>
@@ -506,6 +527,14 @@ export default function StockRevendedorScreen() {
             <Text style={styles.userName}>{usuario.nombre_usuario}</Text>
             <View style={styles.roleContainer}>
               <Text style={styles.roleBadge}>{usuario.rol}</Text>
+
+              {!isNaN(descNum) && descNum > 0 && (
+                <Text style={styles.badgeDescuento}>{descNum}% Desc.</Text>
+              )}
+              {!isNaN(bonifNum) && bonifNum > 0 && (
+                <Text style={styles.badgeBonificacion}>{bonifNum}% Bonif.</Text>
+              )}
+
               {permiteDevolver && usuario.rol !== "Camioneta" && (
                 <Text style={styles.badgePermiso}>
                   ↩️ Habilitado a devolver
@@ -519,11 +548,24 @@ export default function StockRevendedorScreen() {
                 setRevId(usuario.id_usuario);
                 setRevNombre(usuario.nombre_usuario);
                 setRevRol(usuario.rol);
-                const desc = usuario.bonificacion?.toString() || "";
-                if (desc) setRevBonificacion(desc);
-                else setRevBonificacion("");
 
-                setRevPermiteDevolucion(usuario.permite_devolucion || false);
+                const desc = (usuario as any).descuento?.toString() || "";
+                const bonif = (usuario as any).bonificacion?.toString() || "";
+
+                if (desc && parseFloat(desc) > 0) {
+                  setRevDescuento(desc);
+                  setRevBonificacion("");
+                } else if (bonif && parseFloat(bonif) > 0) {
+                  setRevBonificacion(bonif);
+                  setRevDescuento("");
+                } else {
+                  setRevDescuento("");
+                  setRevBonificacion("");
+                }
+
+                setRevPermiteDevolucion(
+                  (usuario as any).permite_devolucion || false,
+                );
                 setModalEditarRevVisible(true);
               }}
             >
@@ -1193,6 +1235,7 @@ export default function StockRevendedorScreen() {
                 ))}
               </ScrollView>
             )}
+
             <View
               style={{
                 flexDirection: isMobile ? "column" : "row",
@@ -1281,6 +1324,7 @@ export default function StockRevendedorScreen() {
                 )}
               </View>
             </View>
+
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.modalBtnCancel}
@@ -1378,6 +1422,24 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   badgePermiso: { fontSize: 12, color: "#059669", fontWeight: "bold" },
+  badgeDescuento: {
+    backgroundColor: "#f3e8ff",
+    color: "#7e22ce",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  badgeBonificacion: {
+    backgroundColor: "#ffedd5",
+    color: "#c2410c",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
   emptyTxt: {
     color: "#94a3b8",
     fontStyle: "italic",
