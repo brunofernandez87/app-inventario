@@ -26,7 +26,7 @@ export interface Venta {
   id_usuario: number;
   total: number;
   estado: string;
-  cliente: string;
+  id_cliente: number;
 }
 export interface DetalleVenta {
   id_detalle: number;
