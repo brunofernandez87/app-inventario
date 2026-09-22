@@ -52,7 +52,9 @@
           "cameraPermission": "Esta aplicación necesita acceso a la cámara para escanear los productos."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
