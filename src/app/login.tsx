@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +11,7 @@ import {
   useWindowDimensions
 } from "react-native";
 import { useAuth } from "../context/authContext";
+import { notificaciones } from "../service/notificaciones";
 
 export default function PantallaLogin() {
   const [email, setEmail] = useState("");
@@ -19,8 +19,8 @@ export default function PantallaLogin() {
 
   // Estado para saber si el casillero está marcado (por defecto sí)
   const [recordarme, setRecordarme] = useState(true);
-
-  const { login, cargando } = useAuth();
+  // Traemos "usuario" desde el context por si ahí tenés guardado su ID y el de la empresa
+  const { login, cargando, usuario } = useAuth();
   const router = useRouter();
 
   // Obtenemos el ancho y calculamos si es celular 
@@ -29,19 +29,17 @@ export default function PantallaLogin() {
 
   const manejarLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Atención", "Por favor completá todos los campos.");
+      notificaciones.error("Atención", "Por favor completá todos los campos.");
       return;
     }
 
     const exito = await login(email, password);
 
     if (exito) {
-      // Guardamos en el dispositivo si el usuario eligió ser recordado o no
       await AsyncStorage.setItem("recordarme", recordarme ? "true" : "false");
-      // Te manda a la pantalla de productos adentro del menú lateral
       router.replace({ pathname: "/(panel)/productos" } as any);
     } else {
-      Alert.alert("Error", "Correo o contraseña incorrectos. Revisá los datos.");
+      notificaciones.error("Error", "Correo o contraseña incorrectos. Revisá los datos.");
     }
   };
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "273870002209",
+    "project_id": "sistema-de-inventario-452a8",
+    "storage_bucket": "sistema-de-inventario-452a8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:273870002209:android:53feb7aaff1f1a5a30eb60",
+        "android_client_info": {
+          "package_name": "com.anonymous.appinventario"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAglbmgjkggUykRtfaOH8b9zN4wpzQquCE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
