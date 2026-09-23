@@ -35,6 +35,7 @@ export default function Venta() {
   const [asc, setAsc] = useState(false);
   const [mostrarDatePickerInicio, setMostrarDatePickerInicio] = useState(false);
   const [mostrarDatePickerFin, setMostrarDatePickerFin] = useState(false);
+  const [filtrosExpandidos, setFiltrosExpandidos] = useState(false);
   const hoy = new Date();
   const hoyString = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
   const [fechaInicio, setFechaInicio] = useState(hoyString);
@@ -241,204 +242,233 @@ export default function Venta() {
               },
             ]}
           >
-            <View
-              style={{
-                flexDirection: width < 768 ? "column" : "row",
-                gap: 10,
-                flex: width >= 768 ? 1.5 : undefined,
-              }}
-            >
-              <View
+            {width < 768 && (
+              <Pressable
+                onPress={() => setFiltrosExpandidos(!filtrosExpandidos)}
                 style={{
                   flexDirection: "row",
-                  gap: 10,
-                  flex: width >= 768 ? 1.5 : undefined,
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingVertical: 4,
+                  paddingHorizontal: 4,
                 }}
               >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.textoFecha}>Fecha inicio</Text>
-
-                  {Platform.OS === "web" ? (
-                    <input
-                      style={{
-                        height: 45,
-                        borderRadius: 8,
-                        border: "1px solid #cbd5e1",
-                        padding: "0 12px",
-                        width: "100%",
-                        boxSizing: "border-box",
-                      }}
-                      type="date"
-                      value={fechaInicio}
-                      onChange={(e) => setFechaInicio(e.target.value)}
-                    />
-                  ) : (
-                    // Si estamos en celular, mostramos un botón que abre el calendario nativo
-                    <>
-                      <Pressable
-                        style={[
-                          styles.inputs,
-                          {
-                            borderWidth: 1,
-                            borderColor: "#cbd5e1",
-                            justifyContent: "center",
-                            paddingHorizontal: 12,
-                            backgroundColor: "white",
-                          },
-                        ]}
-                        onPress={() => setMostrarDatePickerInicio(true)}
-                      >
-                        <Text>{fechaInicio}</Text>
-                      </Pressable>
-
-                      {mostrarDatePickerInicio && (
-                        <DateTimePicker
-                          value={new Date(fechaInicio + "T00:00:00")} // Forzamos la zona horaria local
-                          mode="date"
-                          display="default"
-                          onChange={(event, selectedDate) => {
-                            setMostrarDatePickerInicio(false); // Ocultamos el calendario
-                            if (selectedDate) {
-                              // Formateamos la fecha devuelta a YYYY-MM-DD
-                              const anio = selectedDate.getFullYear();
-                              const mes = String(
-                                selectedDate.getMonth() + 1,
-                              ).padStart(2, "0");
-                              const dia = String(
-                                selectedDate.getDate(),
-                              ).padStart(2, "0");
-                              setFechaInicio(`${anio}-${mes}-${dia}`);
-                            }
-                          }}
-                        />
-                      )}
-                    </>
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.textoFecha}>Fecha fin</Text>
-
-                  {Platform.OS === "web" ? (
-                    // Si estamos en la compu, usamos el input HTML que ya trae un calendario hermoso
-                    <input
-                      style={{
-                        height: 45,
-                        borderRadius: 8,
-                        border: "1px solid #cbd5e1",
-                        padding: "0 12px",
-                        width: "100%",
-                        boxSizing: "border-box",
-                      }}
-                      type="date"
-                      value={fechaFin}
-                      onChange={(e) => setFechaFin(e.target.value)}
-                    />
-                  ) : (
-                    // Si estamos en celular, mostramos un botón que abre el calendario nativo
-                    <>
-                      <Pressable
-                        style={[
-                          styles.inputs,
-                          {
-                            borderWidth: 1,
-                            borderColor: "#cbd5e1",
-                            justifyContent: "center",
-                            paddingHorizontal: 12,
-                            backgroundColor: "white",
-                          },
-                        ]}
-                        onPress={() => setMostrarDatePickerFin(true)}
-                      >
-                        <Text>{fechaFin}</Text>
-                      </Pressable>
-
-                      {mostrarDatePickerFin && (
-                        <DateTimePicker
-                          value={new Date(fechaFin + "T00:00:00")}
-                          mode="date"
-                          display="default"
-                          onChange={(event, selectedDate) => {
-                            setMostrarDatePickerFin(false);
-                            if (selectedDate) {
-                              const anio = selectedDate.getFullYear();
-                              const mes = String(
-                                selectedDate.getMonth() + 1,
-                              ).padStart(2, "0");
-                              const dia = String(
-                                selectedDate.getDate(),
-                              ).padStart(2, "0");
-                              setFechaFin(`${anio}-${mes}-${dia}`);
-                            }
-                          }}
-                        />
-                      )}
-                    </>
-                  )}
-                </View>
-              </View>
-              <View
-                style={{ justifyContent: width < 768 ? "center" : "flex-end" }}
-              >
-                <Pressable
-                  style={({ pressed }) => [
-                    {
-                      height: 45,
-                      backgroundColor: "#2563eb",
-                      justifyContent: "center",
-                      paddingHorizontal: 15,
-                      borderRadius: 8,
-                    },
-                    pressed && { opacity: 0.8 },
-                  ]}
-                  onPress={() => {
-                    setFechaFinFiltro(fechaFin);
-                    setFechaInicioFiltro(fechaInicio);
+                <Text
+                  style={{ fontSize: 15, fontWeight: "bold", color: "#1e293b" }}
+                >
+                  Filtros de búsqueda
+                </Text>
+                <Text
+                  style={{ fontSize: 14, fontWeight: "bold", color: "#64748b" }}
+                >
+                  {filtrosExpandidos ? "▲ OCULTAR" : "▼ MOSTRAR"}
+                </Text>
+              </Pressable>
+            )}
+            {(filtrosExpandidos || width >= 768) && (
+              <>
+                <View
+                  style={{
+                    flexDirection: width < 768 ? "column" : "row",
+                    gap: 10,
+                    flex: width >= 768 ? 1.5 : undefined,
                   }}
                 >
-                  <Text
+                  <View
                     style={{
-                      color: "white",
-                      fontWeight: "bold",
-                      textAlign: "center",
+                      flexDirection: "row",
+                      gap: 10,
+                      flex: width >= 768 ? 1.5 : undefined,
                     }}
                   >
-                    Buscar
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-            <Dropdown
-              style={[
-                styles.dropdown,
-                width >= 768 ? { flex: 1 } : { width: "100%" },
-              ]}
-              data={listaCliente}
-              search={true}
-              searchPlaceholder="Escribi el nombre del cliente..."
-              labelField="label"
-              valueField="value"
-              placeholder="seleccionar cliente"
-              value={cliente}
-              onChange={(item) => {
-                setCliente(item.value);
-              }}
-            />
-            <Dropdown
-              style={[
-                styles.dropdown,
-                width >= 768 ? { flex: 1 } : { width: "100%" },
-              ]}
-              data={listaUsuarios}
-              search={true}
-              searchPlaceholder="Escribi el nombre del usuario..."
-              labelField="label"
-              valueField="value"
-              placeholder="seleccionar usuario"
-              value={usuario}
-              onChange={(item) => {
-                setUsuario(item.value);
-              }}
-            />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.textoFecha}>Fecha inicio</Text>
+
+                      {Platform.OS === "web" ? (
+                        <input
+                          style={{
+                            height: 45,
+                            borderRadius: 8,
+                            border: "1px solid #cbd5e1",
+                            padding: "0 12px",
+                            width: "100%",
+                            boxSizing: "border-box",
+                          }}
+                          type="date"
+                          value={fechaInicio}
+                          onChange={(e) => setFechaInicio(e.target.value)}
+                        />
+                      ) : (
+                        // Si estamos en celular, mostramos un botón que abre el calendario nativo
+                        <>
+                          <Pressable
+                            style={[
+                              styles.inputs,
+                              {
+                                borderWidth: 1,
+                                borderColor: "#cbd5e1",
+                                justifyContent: "center",
+                                paddingHorizontal: 12,
+                                backgroundColor: "white",
+                              },
+                            ]}
+                            onPress={() => setMostrarDatePickerInicio(true)}
+                          >
+                            <Text>{fechaInicio}</Text>
+                          </Pressable>
+
+                          {mostrarDatePickerInicio && (
+                            <DateTimePicker
+                              value={new Date(fechaInicio + "T00:00:00")} // Forzamos la zona horaria local
+                              mode="date"
+                              display="default"
+                              onChange={(event, selectedDate) => {
+                                setMostrarDatePickerInicio(false); // Ocultamos el calendario
+                                if (selectedDate) {
+                                  // Formateamos la fecha devuelta a YYYY-MM-DD
+                                  const anio = selectedDate.getFullYear();
+                                  const mes = String(
+                                    selectedDate.getMonth() + 1,
+                                  ).padStart(2, "0");
+                                  const dia = String(
+                                    selectedDate.getDate(),
+                                  ).padStart(2, "0");
+                                  setFechaInicio(`${anio}-${mes}-${dia}`);
+                                }
+                              }}
+                            />
+                          )}
+                        </>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.textoFecha}>Fecha fin</Text>
+
+                      {Platform.OS === "web" ? (
+                        // Si estamos en la compu, usamos el input HTML que ya trae un calendario hermoso
+                        <input
+                          style={{
+                            height: 45,
+                            borderRadius: 8,
+                            border: "1px solid #cbd5e1",
+                            padding: "0 12px",
+                            width: "100%",
+                            boxSizing: "border-box",
+                          }}
+                          type="date"
+                          value={fechaFin}
+                          onChange={(e) => setFechaFin(e.target.value)}
+                        />
+                      ) : (
+                        // Si estamos en celular, mostramos un botón que abre el calendario nativo
+                        <>
+                          <Pressable
+                            style={[
+                              styles.inputs,
+                              {
+                                borderWidth: 1,
+                                borderColor: "#cbd5e1",
+                                justifyContent: "center",
+                                paddingHorizontal: 12,
+                                backgroundColor: "white",
+                              },
+                            ]}
+                            onPress={() => setMostrarDatePickerFin(true)}
+                          >
+                            <Text>{fechaFin}</Text>
+                          </Pressable>
+
+                          {mostrarDatePickerFin && (
+                            <DateTimePicker
+                              value={new Date(fechaFin + "T00:00:00")}
+                              mode="date"
+                              display="default"
+                              onChange={(event, selectedDate) => {
+                                setMostrarDatePickerFin(false);
+                                if (selectedDate) {
+                                  const anio = selectedDate.getFullYear();
+                                  const mes = String(
+                                    selectedDate.getMonth() + 1,
+                                  ).padStart(2, "0");
+                                  const dia = String(
+                                    selectedDate.getDate(),
+                                  ).padStart(2, "0");
+                                  setFechaFin(`${anio}-${mes}-${dia}`);
+                                }
+                              }}
+                            />
+                          )}
+                        </>
+                      )}
+                    </View>
+                  </View>
+                  <View
+                    style={{
+                      justifyContent: width < 768 ? "center" : "flex-end",
+                    }}
+                  >
+                    <Pressable
+                      style={({ pressed }) => [
+                        {
+                          height: 45,
+                          backgroundColor: "#2563eb",
+                          justifyContent: "center",
+                          paddingHorizontal: 15,
+                          borderRadius: 8,
+                        },
+                        pressed && { opacity: 0.8 },
+                      ]}
+                      onPress={() => {
+                        setFechaFinFiltro(fechaFin);
+                        setFechaInicioFiltro(fechaInicio);
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "white",
+                          fontWeight: "bold",
+                          textAlign: "center",
+                        }}
+                      >
+                        Buscar
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+                <Dropdown
+                  style={[
+                    styles.dropdown,
+                    width >= 768 ? { flex: 1 } : { width: "100%" },
+                  ]}
+                  data={listaCliente}
+                  search={true}
+                  searchPlaceholder="Escribi el nombre del cliente..."
+                  labelField="label"
+                  valueField="value"
+                  placeholder="seleccionar cliente"
+                  value={cliente}
+                  onChange={(item) => {
+                    setCliente(item.value);
+                  }}
+                />
+                <Dropdown
+                  style={[
+                    styles.dropdown,
+                    width >= 768 ? { flex: 1 } : { width: "100%" },
+                  ]}
+                  data={listaUsuarios}
+                  search={true}
+                  searchPlaceholder="Escribi el nombre del usuario..."
+                  labelField="label"
+                  valueField="value"
+                  placeholder="seleccionar usuario"
+                  value={usuario}
+                  onChange={(item) => {
+                    setUsuario(item.value);
+                  }}
+                />
+              </>
+            )}
           </View>
           {cargando ? (
             <Text style={styles.textoMensaje}>Cargando...</Text>
