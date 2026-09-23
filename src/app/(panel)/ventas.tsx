@@ -1,9 +1,11 @@
 import { useEmpresa } from "@/context/empresaContext";
 import { useListaVenta } from "@/context/listaVentaContext";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, Stack } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,6 +33,8 @@ export default function Venta() {
   const [usuario, setUsuario] = useState("Todos");
   const [ordenar, setOrdenar] = useState("fecha_venta");
   const [asc, setAsc] = useState(false);
+  const [mostrarDatePickerInicio, setMostrarDatePickerInicio] = useState(false);
+  const [mostrarDatePickerFin, setMostrarDatePickerFin] = useState(false);
   const hoy = new Date();
   const hoyString = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
   const [fechaInicio, setFechaInicio] = useState(hoyString);
@@ -246,44 +250,126 @@ export default function Venta() {
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.textoFecha}>Fecha inicio</Text>
-                <input
-                  style={{
-                    height: 45,
-                    borderRadius: 8,
-                    border: "1px solid #cbd5e1",
-                    padding: "0 12px",
-                    width: "100%",
-                    boxSizing: "border-box",
-                  }}
-                  placeholder="DD/MM/YYYY"
-                  value={fechaInicio}
-                  type="date"
-                  onChange={(e) => {
-                    setFechaInicio(e.target.value);
-                  }}
-                  maxLength={10}
-                />
+
+                {Platform.OS === "web" ? (
+                  // Si estamos en la compu, usamos el input HTML que ya trae un calendario hermoso
+                  <input
+                    style={{
+                      height: 45,
+                      borderRadius: 8,
+                      border: "1px solid #cbd5e1",
+                      padding: "0 12px",
+                      width: "100%",
+                      boxSizing: "border-box",
+                    }}
+                    type="date"
+                    value={fechaInicio}
+                    onChange={(e) => setFechaInicio(e.target.value)}
+                  />
+                ) : (
+                  // Si estamos en celular, mostramos un botón que abre el calendario nativo
+                  <>
+                    <Pressable
+                      style={[
+                        styles.inputs,
+                        {
+                          borderWidth: 1,
+                          borderColor: "#cbd5e1",
+                          justifyContent: "center",
+                          paddingHorizontal: 12,
+                          backgroundColor: "white",
+                        },
+                      ]}
+                      onPress={() => setMostrarDatePickerInicio(true)}
+                    >
+                      <Text>{fechaInicio}</Text>
+                    </Pressable>
+
+                    {mostrarDatePickerInicio && (
+                      <DateTimePicker
+                        value={new Date(fechaInicio + "T00:00:00")} // Forzamos la zona horaria local
+                        mode="date"
+                        display="default"
+                        onChange={(event, selectedDate) => {
+                          setMostrarDatePickerInicio(false); // Ocultamos el calendario
+                          if (selectedDate) {
+                            // Formateamos la fecha devuelta a YYYY-MM-DD
+                            const anio = selectedDate.getFullYear();
+                            const mes = String(
+                              selectedDate.getMonth() + 1,
+                            ).padStart(2, "0");
+                            const dia = String(selectedDate.getDate()).padStart(
+                              2,
+                              "0",
+                            );
+                            setFechaInicio(`${anio}-${mes}-${dia}`);
+                          }
+                        }}
+                      />
+                    )}
+                  </>
+                )}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.textoFecha}>Fecha fin</Text>
-                <input
-                  style={{
-                    height: 45,
-                    borderRadius: 8,
-                    border: "1px solid #cbd5e1",
-                    padding: "0 12px",
-                    width: "100%",
-                    boxSizing: "border-box",
-                  }}
-                  placeholder="DD/MM/YYYY"
-                  value={String(fechaFin)}
-                  type="date"
-                  onChange={(e) => {
-                    const fecha = new Date(e.target.value);
-                    setFechaFin(fecha);
-                  }}
-                  maxLength={10}
-                />
+
+                {Platform.OS === "web" ? (
+                  // Si estamos en la compu, usamos el input HTML que ya trae un calendario hermoso
+                  <input
+                    style={{
+                      height: 45,
+                      borderRadius: 8,
+                      border: "1px solid #cbd5e1",
+                      padding: "0 12px",
+                      width: "100%",
+                      boxSizing: "border-box",
+                    }}
+                    type="date"
+                    value={fechaFin}
+                    onChange={(e) => setFechaFin(e.target.value)}
+                  />
+                ) : (
+                  // Si estamos en celular, mostramos un botón que abre el calendario nativo
+                  <>
+                    <Pressable
+                      style={[
+                        styles.inputs,
+                        {
+                          borderWidth: 1,
+                          borderColor: "#cbd5e1",
+                          justifyContent: "center",
+                          paddingHorizontal: 12,
+                          backgroundColor: "white",
+                        },
+                      ]}
+                      onPress={() => setMostrarDatePickerFin(true)}
+                    >
+                      <Text>{fechaFin}</Text>
+                    </Pressable>
+
+                    {mostrarDatePickerFin && (
+                      <DateTimePicker
+                        value={new Date(fechaFin + "T00:00:00")}
+                        mode="date"
+                        display="default"
+                        onChange={(event, selectedDate) => {
+                          setMostrarDatePickerFin(false);
+                          if (selectedDate) {
+                            const anio = selectedDate.getFullYear();
+                            const mes = String(
+                              selectedDate.getMonth() + 1,
+                            ).padStart(2, "0");
+                            const dia = String(selectedDate.getDate()).padStart(
+                              2,
+                              "0",
+                            );
+                            setFechaFin(`${anio}-${mes}-${dia}`);
+                          }
+                        }}
+                      />
+                    )}
+                  </>
+                )}
               </View>
               <View style={{ justifyContent: "flex-end" }}>
                 <Pressable
@@ -298,8 +384,8 @@ export default function Venta() {
                     pressed && { opacity: 0.8 },
                   ]}
                   onPress={() => {
-                    setFechaInicioFiltro(fechaInicio);
                     setFechaFinFiltro(fechaFin);
+                    setFechaInicioFiltro(fechaInicio);
                   }}
                 >
                   <Text style={{ color: "white", fontWeight: "bold" }}>
