@@ -315,6 +315,10 @@ export default function ListaProductos() {
       <head>
         <meta charset="utf-8">
         <style>
+         * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
           @page { size: auto; margin: 10mm; } 
           body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; }
           h1 { text-align: center; color: #1e293b; margin-bottom: 20px; }
