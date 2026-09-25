@@ -29,6 +29,7 @@ import {
 import { imprimirPDF } from "../../utils/impresora";
 import EscanerModal from "../escaner/escanerModal";
 import GestionarMedidas from "../medida/medida";
+import Buscador from "../producto/buscador";
 import Carrito from "../producto/carrito";
 import CodigoProducto from "../producto/codigoProducto";
 import CreacionProducto from "../producto/crearProducto";
@@ -50,12 +51,14 @@ export default function ListaProductos() {
   const [modalElminar, setModalEliminar] = useState(false);
   const [filterStockBajo, setFilterStockBajo] = useState(false);
   const [filterAlerta, setFilterAlerta] = useState(false);
+  const [textoBusqueda, setTextoBusqueda] = useState("");
   const { agregarAlCarrito } = useListaCarrito();
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
     [],
   );
   const [lista, setLista] = useState(listaProducto);
+  const [listaFiltrada, setListaFiltrada] = useState(listaProducto);
   const { empresa } = useEmpresa();
   const { usuario } = useAuth();
   useEffect(() => {
@@ -101,40 +104,50 @@ export default function ListaProductos() {
   }, [empresa, modalMedidasVisible]);
   useEffect(() => {
     let resultado = [...lista];
-    if (resultado.length === 0 || ordenar === "Producto") return;
-    resultado.sort((a, b) => {
-      let valorA = a[ordenar];
-      let valorB = b[ordenar];
-      if (ordenar === "margen") {
-        valorA =
-          a.costo_compra > 0
-            ? ((a.precio_venta - a.costo_compra) / a.costo_compra) * 100
-            : 0;
-        valorB =
-          b.costo_compra > 0
-            ? ((b.precio_venta - b.costo_compra) / b.costo_compra) * 100
-            : 0;
-      }
-      if (valorA == null) valorA = "";
-      if (valorB == null) valorB = "";
-      if (typeof valorA === "string") {
-        if (asc) {
-          return String(valorA).localeCompare(String(valorB));
-        } else {
-          return String(valorB).localeCompare(String(valorA));
+    if (textoBusqueda.trim() !== "") {
+      const texto = textoBusqueda.toLowerCase();
+      resultado = resultado.filter(
+        (item) =>
+          item.nombre_producto.toLowerCase().includes(texto) ||
+          item.codigo_alfanumerico.toLowerCase().includes(texto) ||
+          (item.marca && item.marca.toLowerCase().includes(texto)),
+      );
+    }
+    if (resultado.length > 0 && ordenar !== "Producto") {
+      resultado.sort((a, b) => {
+        let valorA = a[ordenar];
+        let valorB = b[ordenar];
+        if (ordenar === "margen") {
+          valorA =
+            a.costo_compra > 0
+              ? ((a.precio_venta - a.costo_compra) / a.costo_compra) * 100
+              : 0;
+          valorB =
+            b.costo_compra > 0
+              ? ((b.precio_venta - b.costo_compra) / b.costo_compra) * 100
+              : 0;
         }
-      }
-      if (typeof valorA === "number") {
-        if (asc) {
-          return valorA - valorB;
-        } else {
-          return valorB - valorA;
+        if (valorA == null) valorA = "";
+        if (valorB == null) valorB = "";
+        if (typeof valorA === "string") {
+          if (asc) {
+            return String(valorA).localeCompare(String(valorB));
+          } else {
+            return String(valorB).localeCompare(String(valorA));
+          }
         }
-      }
-      return 0;
-    });
-    setLista(resultado);
-  }, [ordenar, asc, filterStockBajo, filterAlerta]);
+        if (typeof valorA === "number") {
+          if (asc) {
+            return valorA - valorB;
+          } else {
+            return valorB - valorA;
+          }
+        }
+        return 0;
+      });
+    }
+    setListaFiltrada(resultado);
+  }, [ordenar, asc, filterStockBajo, filterAlerta, textoBusqueda, lista]);
   const manejarOrden = (columna: string) => {
     if (ordenar === columna) {
       setAsc(!asc);
@@ -430,6 +443,11 @@ export default function ListaProductos() {
         </Text>
       ) : (
         <View style={{ flex: 1 }}>
+          <Buscador
+            placeholder="Buscar por nombre, codigo o marca"
+            valor={textoBusqueda}
+            onChangeText={setTextoBusqueda}
+          />
           {celular ? (
             <ScrollView
               style={{ flex: 1 }}
@@ -646,7 +664,7 @@ export default function ListaProductos() {
                       </Pressable>
                     </View>
                     <FlatList
-                      data={lista}
+                      data={listaFiltrada}
                       keyExtractor={memoizedKeyExtractor}
                       renderItem={renderItem}
                       initialNumToRender={15}
