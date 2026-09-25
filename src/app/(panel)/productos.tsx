@@ -66,14 +66,17 @@ export default function ListaProductos() {
 
         if (pushToken) {
           // 3. ¡Mandamos los datos directo sin hacer el SELECT previo!
-          const { error } = await supabase.rpc('registrar_push_token', {
+          const { error } = await supabase.rpc("registrar_push_token", {
             p_id_usuario: usuario.id_usuario,
             p_id_empresa: empresa.id_empresa,
             p_token: pushToken,
           });
 
           if (error) {
-            console.error("❌ Error de Supabase al guardar token:", error.message);
+            console.error(
+              "❌ Error de Supabase al guardar token:",
+              error.message,
+            );
           } else {
             console.log("✅ ¡Token guardado exitosamente desde Productos!");
           }
@@ -106,9 +109,9 @@ export default function ListaProductos() {
       const margen =
         item.costo_compra > 0
           ? Math.round(
-            ((item.precio_venta - item.costo_compra) / item.costo_compra) *
-            100,
-          )
+              ((item.precio_venta - item.costo_compra) / item.costo_compra) *
+                100,
+            )
           : 0;
       return (
         <Pressable
@@ -303,6 +306,7 @@ export default function ListaProductos() {
   return (
     <View style={{ flex: 1, padding: celular ? 10 : 20 }}>
       <Stack.Screen options={{ title: "Lista de productos" }} />
+      <Text style={styles.titulo}> Productos</Text>
       <View style={styles.toolbar}>
         <Pressable
           onPress={() => setModalVisible(true)}
@@ -647,6 +651,13 @@ export default function ListaProductos() {
 }
 
 const styles = StyleSheet.create({
+  titulo: {
+    fontSize: 40,
+    fontWeight: "600",
+    textAlign: "left",
+    color: "#1e293b",
+    marginBottom: 10,
+  },
   contenedorTabla: {
     backgroundColor: "#ffffff",
     borderRadius: 12,
