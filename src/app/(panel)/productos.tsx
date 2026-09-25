@@ -43,10 +43,13 @@ export default function ListaProductos() {
   const [modalVisible, setModalVisible] = useState(false);
   const [opcionesVisible, setOpcionesVisible] = useState(false);
   const [modalMedidasVisible, setModalMedidasVisible] = useState(false);
-
+  const [ordenar, setOrdenar] = useState("nombre_producto");
+  const [asc, setAsc] = useState(true);
   const [listaMedida, setListamedida] = useState([]);
   const { listaProducto, cargando, fetchProducts } = useListaProducto();
   const [modalElminar, setModalEliminar] = useState(false);
+  const [filterStockBajo, setFilterStockBajo] = useState(false);
+  const [filterAlerta, setFilterAlerta] = useState(false);
   const { agregarAlCarrito } = useListaCarrito();
   const memoizedKeyExtractor = useCallback(
     (item: any) => item.id_producto.toString(),
@@ -85,7 +88,6 @@ export default function ListaProductos() {
         console.error("Error general registrando token:", error);
       }
     };
-
     registrarTokenEnSegundoPlano();
   }, [usuario, empresa]);
 
@@ -97,7 +99,50 @@ export default function ListaProductos() {
     };
     buscarMedidas();
   }, [empresa, modalMedidasVisible]);
-
+  useEffect(() => {
+    let resultado = [...lista];
+    if (resultado.length === 0 || ordenar === "Producto") return;
+    resultado.sort((a, b) => {
+      let valorA = a[ordenar];
+      let valorB = b[ordenar];
+      if (ordenar === "margen") {
+        valorA =
+          a.costo_compra > 0
+            ? ((a.precio_venta - a.costo_compra) / a.costo_compra) * 100
+            : 0;
+        valorB =
+          b.costo_compra > 0
+            ? ((b.precio_venta - b.costo_compra) / b.costo_compra) * 100
+            : 0;
+      }
+      if (valorA == null) valorA = "";
+      if (valorB == null) valorB = "";
+      if (typeof valorA === "string") {
+        if (asc) {
+          return String(valorA).localeCompare(String(valorB));
+        } else {
+          return String(valorB).localeCompare(String(valorA));
+        }
+      }
+      if (typeof valorA === "number") {
+        if (asc) {
+          return valorA - valorB;
+        } else {
+          return valorB - valorA;
+        }
+      }
+      return 0;
+    });
+    setLista(resultado);
+  }, [ordenar, asc, filterStockBajo, filterAlerta]);
+  const manejarOrden = (columna: string) => {
+    if (ordenar === columna) {
+      setAsc(!asc);
+    } else {
+      setOrdenar(columna);
+      setAsc(false);
+    }
+  };
   const renderItem = useCallback(
     ({ item }: { item: any }) => {
       const medida = listaMedida.find(
@@ -200,8 +245,6 @@ export default function ListaProductos() {
     }
   };
 
-  const [filterStockBajo, setFilterStockBajo] = useState(false);
-  const [filterAlerta, setFilterAlerta] = useState(false);
   const stockBajo = async () => {
     setFilterAlerta(false);
     const nuevoEstado = !filterStockBajo;
@@ -393,32 +436,93 @@ export default function ListaProductos() {
                 <ScrollView horizontal={true} style={{ flex: 1 }}>
                   <View style={{ flex: 1 }}>
                     <View style={styles.encabezadoRow}>
-                      <Text style={[styles.celdaEncabezado, { width: 140 }]}>
-                        Código
-                      </Text>
-                      <Text style={[styles.celdaEncabezado, { width: 250 }]}>
-                        Producto
-                      </Text>
-                      <Text style={[styles.celdaEncabezado, { width: 120 }]}>
-                        Ubicacion
-                      </Text>
-                      <Text style={[styles.celdaEncabezado, { width: 100 }]}>
-                        Costo
-                      </Text>
-                      <Text style={[styles.celdaEncabezado, { width: 100 }]}>
-                        Precio
-                      </Text>
-                      <Text style={[styles.celdaEncabezado, { width: 90 }]}>
-                        Margen
-                      </Text>
-                      <Text
-                        style={[
-                          styles.celdaEncabezado,
-                          { width: 100, textAlign: "center" },
-                        ]}
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("codigo_alfanumerico");
+                        }}
                       >
-                        Stock
-                      </Text>
+                        <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                          Código
+                          {ordenar === "codigo_alfanumerico"
+                            ? asc
+                              ? "↑"
+                              : "↓"
+                            : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("nombre_producto");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 250 }]}>
+                          Producto
+                          {ordenar === "nombre_producto"
+                            ? asc
+                              ? "↑"
+                              : "↓"
+                            : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("ubicacion");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 120 }]}>
+                          Ubicacion
+                          {ordenar === "ubicacion" ? (asc ? "↑" : "↓") : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("costo_compra");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                          Costo
+                          {ordenar === "costo_compra" ? (asc ? "↑" : "↓") : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("precio_venta");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                          Precio
+                          {ordenar === "precio_venta" ? (asc ? "↑" : "↓") : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("margen");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 90 }]}>
+                          Margen
+                          {ordenar === "margen" ? (asc ? "↑" : "↓") : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("stock_unidades");
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.celdaEncabezado,
+                            { width: 100, textAlign: "center" },
+                          ]}
+                        >
+                          Stock
+                          {ordenar === "stock_unidades"
+                            ? asc
+                              ? "↑"
+                              : "↓"
+                            : ""}
+                        </Text>
+                      </Pressable>
                     </View>
                     <FlatList
                       data={lista}
@@ -449,33 +553,93 @@ export default function ListaProductos() {
                 <ScrollView horizontal={true} style={{ flex: 1 }}>
                   <View style={{ flex: 1 }}>
                     <View style={styles.encabezadoRow}>
-                      <Text style={[styles.celdaEncabezado, { width: 140 }]}>
-                        Código
-                      </Text>
-                      <Text style={[styles.celdaEncabezado, { width: 250 }]}>
-                        Producto
-                      </Text>
-                      <Text style={[styles.celdaEncabezado, { width: 120 }]}>
-                        Ubicacion
-                      </Text>
-                      <Text style={[styles.celdaEncabezado, { width: 100 }]}>
-                        Costo
-                      </Text>
-
-                      <Text style={[styles.celdaEncabezado, { width: 100 }]}>
-                        Precio
-                      </Text>
-                      <Text style={[styles.celdaEncabezado, { width: 90 }]}>
-                        Margen
-                      </Text>
-                      <Text
-                        style={[
-                          styles.celdaEncabezado,
-                          { width: 100, textAlign: "center" },
-                        ]}
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("codigo_alfanumerico");
+                        }}
                       >
-                        Stock
-                      </Text>
+                        <Text style={[styles.celdaEncabezado, { width: 140 }]}>
+                          Código
+                          {ordenar === "codigo_alfanumerico"
+                            ? asc
+                              ? "↑"
+                              : "↓"
+                            : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("nombre_producto");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 250 }]}>
+                          Producto
+                          {ordenar === "nombre_producto"
+                            ? asc
+                              ? "↑"
+                              : "↓"
+                            : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("ubicacion");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 120 }]}>
+                          Ubicacion
+                          {ordenar === "ubicacion" ? (asc ? "↑" : "↓") : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("costo_compra");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                          Costo
+                          {ordenar === "costo_compra" ? (asc ? "↑" : "↓") : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("precio_venta");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 100 }]}>
+                          Precio
+                          {ordenar === "precio_venta" ? (asc ? "↑" : "↓") : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("margen");
+                        }}
+                      >
+                        <Text style={[styles.celdaEncabezado, { width: 90 }]}>
+                          Margen
+                          {ordenar === "margen" ? (asc ? "↑" : "↓") : ""}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          manejarOrden("stock_unidades");
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.celdaEncabezado,
+                            { width: 100, textAlign: "center" },
+                          ]}
+                        >
+                          Stock
+                          {ordenar === "stock_unidades"
+                            ? asc
+                              ? "↑"
+                              : "↓"
+                            : ""}
+                        </Text>
+                      </Pressable>
                     </View>
                     <FlatList
                       data={lista}
